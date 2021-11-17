@@ -47,7 +47,7 @@ def main(args):
             print(val_inputs.size())
             val_outputs = val_inputs
             val_outputs = sliding_window_inference(
-                inputs= val_inputs,
+                inputs= val_inputs.to(DEVICE),
                 roi_size = cropSize, 
                 sw_batch_size= nbr_workers, 
                 predictor= net, 
