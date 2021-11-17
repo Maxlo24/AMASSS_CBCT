@@ -72,6 +72,7 @@ def CreateTrainTransform(CropSize = [64,64,64]):
     train_transforms = Compose(
         [
             LoadImaged(keys=["scan", "seg"]),
+            ToTensord(keys=["scan", "seg"]),
             AddChanneld(keys=["scan", "seg"]),
             ScaleIntensityd(
                 keys=["scan"],minv = 0.0, maxv = 1.0, factor = None
@@ -111,7 +112,6 @@ def CreateTrainTransform(CropSize = [64,64,64]):
             #     offsets=0.10,
             #     prob=0.50,
             # ),
-            ToTensord(keys=["scan", "seg"]),
         ]
     )
     return train_transforms

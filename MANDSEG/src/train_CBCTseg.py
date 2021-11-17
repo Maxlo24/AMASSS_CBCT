@@ -83,7 +83,7 @@ def main(args):
         }
 
     max_iterations = args.max_iterations
-    eval_num = 1
+    eval_num = 500
     post_label = AsDiscrete(to_onehot=True, n_classes=label_nbr)
     post_pred = AsDiscrete(argmax=True, to_onehot=True, n_classes=label_nbr)
     dice_metric = DiceMetric(include_background=True, reduction="mean", get_not_nans=False)
