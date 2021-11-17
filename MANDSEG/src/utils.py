@@ -55,6 +55,7 @@ from monai.data import (
 )
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DATA_TYPE = torch.float32
 
 
 
@@ -128,6 +129,17 @@ def CreateValidationTransform():
     )
     return val_transforms
 
+def CreatePredictTransform(data):
+
+    pre_transforms = Compose(
+        [AddChannel(),ScaleIntensity(minv = 0.0, maxv = 1.0, factor = None)]
+    )
+
+    input_img = sitk.ReadImage(data) 
+    img = sitk.GetArrayFromImage(input_img)
+    pre_img = torch.from_numpy(pre_transforms(img))
+    # pre_img = pre_img.type(DATA_TYPE)
+    return pre_img,input_img
 
 ######## ########     ###    #### ##    ## #### ##    ##  ######   
    ##    ##     ##   ## ##    ##  ###   ##  ##  ###   ## ##    ##  
@@ -412,3 +424,19 @@ def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],outpath=-1):
             itk.imwrite(img, outpath)
         return img
 
+
+def SavePrediction(data,input_img, outpath):
+
+    print("Saving prediction to : ", outpath)
+
+    # print(data)
+
+    img = data.numpy()[0][:]
+    output = sitk.GetImageFromArray(img)
+    output.SetSpacing(input_img.GetSpacing())
+    output.SetDirection(input_img.GetDirection())
+    output.SetOrigin(input_img.GetOrigin())
+
+    writer = sitk.ImageFileWriter()
+    writer.SetFileName(outpath)
+    writer.Execute(output)
