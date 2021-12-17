@@ -316,18 +316,36 @@ def GetTrainValDataset(dir,val_percentage):
     return train_data,valid_data
 
 
-def CorrectCBCT(filepath,outpath, closing_radius = 5):
+def CorrectHisto(filepath,outpath,min,max):
+
+    print("Reading:", filepath)
+    input_img = sitk.ReadImage(filepath) 
+    img = sitk.GetArrayFromImage(input_img)
+
+    img = np.where(img > max, max,img)
+    img = np.where(img < min, min,img)
+
+    output = sitk.GetImageFromArray(img)
+    output.SetSpacing(input_img.GetSpacing())
+    output.SetDirection(input_img.GetDirection())
+    output.SetOrigin(input_img.GetOrigin())
+
+    writer = sitk.ImageFileWriter()
+    writer.SetFileName(outpath)
+    writer.Execute(output)
+    return output
+
+
+def CloseCBCTSeg(filepath,outpath, closing_radius = 5):
     """
-    Remove the unwanted labels from a file and make the other one bigger  
+    Close the holes in the CBCT
 
     Parameters
     ----------
     filePath
      path of the image file 
-    labelToRemove
-     list of the labels to remove from the image 
-    label_radius
-     radius of the dilatation to apply to the remaining labels
+    radius
+     radius of the closing to apply to the seg
     outpath
      path to save the new image
     """
