@@ -19,6 +19,9 @@ from monai.data import (
     decollate_batch,
 )
 
+from torch.utils.tensorboard import SummaryWriter
+
+
 def main(args):
 
     # #####################################
@@ -41,9 +44,7 @@ def main(args):
         cropSize=cropSize
     ).to(DEVICE)
 
-    loss_function = DiceCELoss(to_onehot_y=True, softmax=True)
     torch.backends.cudnn.benchmark = True
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-5)
 
     train_ds = CacheDataset(
         data=trainingSet,
@@ -53,7 +54,8 @@ def main(args):
     )
     train_loader = DataLoader(
         train_ds, batch_size=1, 
-        shuffle=True, num_workers=8, 
+        shuffle=True,
+        num_workers=nbr_workers, 
         pin_memory=True
     )
     val_ds = CacheDataset(
@@ -65,19 +67,141 @@ def main(args):
     val_loader = DataLoader(
         val_ds, batch_size=1, 
         shuffle=False, 
-        num_workers=4, 
+        num_workers=nbr_workers, 
         pin_memory=True
     )
     
-    case_num = 1
-    img = val_ds[case_num]["scan"]
-    label = val_ds[case_num]["seg"]
-    PlotState(img,label,40,40,15)
-    for i,data in enumerate(train_ds[case_num]):
-        img = data["scan"]
-        label = data["seg"]
-        PlotState(img,label,32,32,32)
+    # case_num = 1
+    # img = val_ds[case_num]["scan"]
+    # label = val_ds[case_num]["seg"]
+    # PlotState(img,label,40,40,15)
+    # for i,data in enumerate(train_ds[case_num]):
+    #     img = data["scan"]
+    #     label = data["seg"]
+    #     PlotState(img,label,32,32,32)
 
+    TM = TrainingMaster(
+        model = model,
+        train_loader=train_loader,
+        val_loader=val_loader,
+        save_model_dir=args.dir_model,
+        save_runs_dir=args.dir_data,
+        nbr_label = label_nbr,
+        FOV=cropSize,
+        device=DEVICE
+        )
+
+    # TM.Train()
+    # TM.Validate()
+    TM.Process(10)
+
+
+class TrainingMaster:
+    def __init__(
+        self,
+        model,
+        train_loader,
+        val_loader,
+        save_model_dir,
+        save_runs_dir,
+        nbr_label = 2,
+        FOV = [64,64,64],
+        device = DEVICE,
+        ) -> None:
+        self.model = model
+        self.device = device
+        self.loss_function = DiceCELoss(to_onehot_y=True, softmax=True)
+        self.optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=1e-5)
+        self.post_label = AsDiscrete(to_onehot=True,num_classes=nbr_label)
+        self.post_pred = AsDiscrete(argmax=True, to_onehot=True,num_classes=nbr_label)
+        self.dice_metric = DiceMetric(include_background=True, reduction="mean", get_not_nans=False)
+
+        self.save_model_dir = save_model_dir
+        if not os.path.exists(self.save_model_dir):
+            os.makedirs(self.save_model_dir)
+
+        run_path = save_runs_dir + "/Runs"
+        if not os.path.exists(run_path):
+            os.makedirs(run_path)
+        self.tensorboard = SummaryWriter(run_path)
+
+        self.val_loader = val_loader
+        self.train_loader = train_loader
+        self.FOV = FOV
+
+        self.epoch = 0
+        self.best_dice = 0
+        self.loss_lst = []
+        self.dice_lst = []
+
+    def Process(self,num_epoch):
+        for epoch in range(num_epoch):
+            self.Train()
+            self.Validate()
+            self.epoch += 1
+            self.tensorboard.close()
+
+    def Train(self):
+        self.model.train()
+        epoch_loss = 0
+        step = 0
+        epoch_iterator = tqdm(
+            self.train_loader, desc="Training (loss=X.X)", dynamic_ncols=True
+        )
+        for step, batch in enumerate(epoch_iterator):
+            step += 1
+            x, y = (batch["scan"].to(self.device), batch["seg"].to(self.device))
+            logit_map = self.model(x)
+            # print(logit_map.shape,x.shape,y.shape)
+            loss = self.loss_function(logit_map, y)
+            loss.backward()
+            epoch_loss += loss.item()
+            self.optimizer.step()
+            self.optimizer.zero_grad()
+            epoch_iterator.set_description(
+                "Training (loss=%2.5f)" % (loss)
+            )
+
+        self.loss_lst.append(epoch_loss)
+
+        self.tensorboard.add_scalar("Training loss",epoch_loss,self.epoch)
+
+    def Validate(self):
+        self.model.eval()
+        dice_vals = list()
+        epoch_iterator_val = tqdm(
+            self.val_loader, desc="Validate (dice=X.X)", dynamic_ncols=True
+        )
+        with torch.no_grad():
+            for step, batch in enumerate(epoch_iterator_val):
+                val_inputs, val_labels = (batch["scan"].to(self.device), batch["seg"].to(self.device))
+                val_outputs = sliding_window_inference(val_inputs, self.FOV, 4, self.model)
+                val_labels_list = decollate_batch(val_labels)
+                val_labels_convert = [
+                    self.post_label(val_label_tensor) for val_label_tensor in val_labels_list
+                ]
+                val_outputs_list = decollate_batch(val_outputs)
+                val_output_convert = [
+                    self.post_pred(val_pred_tensor) for val_pred_tensor in val_outputs_list
+                ]
+                self.dice_metric(y_pred=val_output_convert, y=val_labels_convert)
+                dice = self.dice_metric.aggregate().item()
+                dice_vals.append(dice)
+                epoch_iterator_val.set_description(
+                    "Validate (dice=%2.5f)" % (dice)
+                )
+            self.dice_metric.reset()
+        mean_dice_val = np.mean(dice_vals)
+        self.dice_lst.append(mean_dice_val)
+
+        if mean_dice_val > self.best_dice:
+            torch.save(self.model.state_dict(), os.path.join(self.save_model_dir,"best_model.pth"))
+            print("Model Was Saved ! Current Best Avg. Dice: {} Previous Best Avg. Dice: {}".format(mean_dice_val, self.best_dice))
+            self.best_dice = mean_dice_val
+        else:
+            print("Model Was Not Saved ! Best Avg. Dice: {} Current Avg. Dice: {}".format(self.best_dice, mean_dice_val))
+
+        self.tensorboard.add_scalar("Validation dice",mean_dice_val,self.epoch)
 
 
 # #####################################
@@ -98,7 +222,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
     input_group.add_argument('-mi', '--max_iterations', type=int, help='Number of training epocs', default=250)
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=2)
-    input_group.add_argument('-bs', '--batch_size', type=int, help='batch size', default=10)
+    input_group.add_argument('-bs', '--batch_size', type=int, help='batch size', default=1)
     input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=0)
 
 
