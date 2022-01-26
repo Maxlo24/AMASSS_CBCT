@@ -49,7 +49,6 @@ def main(args):
             else:
                 print("----> Unrecognise CBCT file found at :", img_fn)
 
-            
     # if not os.path.exists(SegOutpath):
     #     os.makedirs(SegOutpath)
     
@@ -78,10 +77,9 @@ def main(args):
         ScanOutpath = os.path.normpath("/".join([args.out,patient_dir,"Scans"]))
         SegOutpath = os.path.normpath("/".join([args.out,patient_dir,"Segs"]))
 
-
         if not os.path.exists(ScanOutpath):
             os.makedirs(ScanOutpath)
-
+            
         if not os.path.exists(SegOutpath):
             os.makedirs(SegOutpath)
 
@@ -108,7 +106,7 @@ if __name__ ==  '__main__':
     output_params = parser.add_argument_group('Output parameters')
     output_params.add_argument('-o','--out', type=str, help='Output directory', required=True)
 
-    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5])
+    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[2])
 
     args = parser.parse_args()
     

@@ -2,6 +2,8 @@ import numpy as np
 import SimpleITK as sitk
 import itk
 import os
+import matplotlib.pyplot as plt
+from scipy import stats
 
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
@@ -13,7 +15,6 @@ import sys
 
 # ----- MONAI ------
 
-from monai.losses import DiceCELoss
 from monai.inferers import sliding_window_inference
 from monai.transforms import (
     AsDiscrete,
@@ -43,17 +44,6 @@ from monai.transforms import (
     BorderPad
 )
 
-from monai.config import print_config
-from monai.metrics import DiceMetric
-
-from monai.data import (
-    DataLoader,
-    CacheDataset,
-    SmartCacheDataset,
-    load_decathlon_datalist,
-    decollate_batch,
-)
-
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 DATA_TYPE = torch.float32
 
@@ -71,62 +61,85 @@ DATA_TYPE = torch.float32
 def CreateTrainTransform(CropSize = [64,64,64]):
     train_transforms = Compose(
         [
-            LoadImaged(keys=["scan", "seg"]),
-            ToTensord(keys=["scan", "seg"]),
-            AddChanneld(keys=["scan", "seg"]),
-            ScaleIntensityd(
-                keys=["scan"],minv = 0.0, maxv = 1.0, factor = None
-            ),
-            RandCropByPosNegLabeld(
-                keys=["scan", "seg"],
-                label_key="seg",
-                spatial_size=CropSize,
-                pos=1,
-                neg=1,
-                num_samples=4,
-                image_key="scan",
-                image_threshold=0,
-            ),
-            RandFlipd(
-                keys=["scan", "seg"],
-                spatial_axis=[0],
-                prob=0.10,
-            ),
-            RandFlipd(
-                keys=["scan", "seg"],
-                spatial_axis=[1],
-                prob=0.10,
-            ),
-            RandFlipd(
-                keys=["scan", "seg"],
-                spatial_axis=[2],
-                prob=0.10,
-            ),
-            RandRotate90d(
-                keys=["scan", "seg"],
-                prob=0.10,
-                max_k=3,
-            ),
-            # RandShiftIntensityd(
-            #     keys=["scan"],
-            #     offsets=0.10,
-            #     prob=0.50,
-            # ),
+        LoadImaged(keys=["scan", "seg"]),
+        AddChanneld(keys=["scan", "seg"]),
+        Spacingd(
+            keys=["scan", "seg"],
+            pixdim=(1.5, 1.5, 2.0),
+            mode=("bilinear", "nearest"),
+        ),
+        Orientationd(keys=["scan", "seg"], axcodes="RAS"),
+        ScaleIntensityd(
+            keys=["scan"],minv = 0.0, maxv = 1.0, factor = None
+        ),
+        CropForegroundd(keys=["scan", "seg"], source_key="scan"),
+        RandCropByPosNegLabeld(
+            keys=["scan", "seg"],
+            label_key="seg",
+            spatial_size=CropSize,
+            pos=1,
+            neg=1,
+            num_samples=10,
+            image_key="scan",
+            image_threshold=0,
+        ),
+        RandFlipd(
+            keys=["scan", "seg"],
+            spatial_axis=[0],
+            prob=0.20,
+        ),
+        RandFlipd(
+            keys=["scan", "seg"],
+            spatial_axis=[1],
+            prob=0.20,
+        ),
+        RandFlipd(
+            keys=["scan", "seg"],
+            spatial_axis=[2],
+            prob=0.20,
+        ),
+        RandRotate90d(
+            keys=["scan", "seg"],
+            prob=0.10,
+            max_k=3,
+        ),
+        # RandShiftIntensityd(
+        #     keys=["scan"],
+        #     offsets=0.10,
+        #     prob=0.50,
+        # ),
+        ToTensord(keys=["scan", "seg"]),
         ]
     )
+
     return train_transforms
 
 def CreateValidationTransform():
+
     val_transforms = Compose(
         [
             LoadImaged(keys=["scan", "seg"]),
             AddChanneld(keys=["scan", "seg"]),
+            Orientationd(keys=["scan", "seg"], axcodes="RAS"),
             ScaleIntensityd(
-                keys=["scan"],minv = 0.0, maxv = 1.0, factor = None
+            keys=["scan"],minv = 0.0, maxv = 1.0, factor = None
             ),
+            CropForegroundd(keys=["scan", "seg"], source_key="scan"),
             ToTensord(keys=["scan", "seg"]),
         ]
     )
+
+
+    # val_transforms = Compose(
+    #     [
+    #         LoadImaged(keys=["scan", "seg"]),
+    #         AddChanneld(keys=["scan", "seg"]),
+    #         ScaleIntensityd(
+    #             keys=["scan"],minv = 0.0, maxv = 1.0, factor = None
+    #         ),
+    #         ToTensord(keys=["scan", "seg"]),
+    #     ]
+    # )
     return val_transforms
 
 def CreatePredictTransform(data):
@@ -316,14 +329,47 @@ def GetTrainValDataset(dir,val_percentage):
     return train_data,valid_data
 
 
-def CorrectHisto(filepath,outpath,min,max):
+def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-3000):
 
     print("Reading:", filepath)
     input_img = sitk.ReadImage(filepath) 
     img = sitk.GetArrayFromImage(input_img)
 
-    img = np.where(img > max, max,img)
-    img = np.where(img < min, min,img)
+    img_min = np.min(img)
+    img_max = np.max(img)
+    img_range = img_max - img_min
+    # print(img_min,img_max,img_range)
+
+    definition = 1000
+    histo = np.histogram(img,definition)
+    cum = np.cumsum(histo[0])
+    cum = cum - np.min(cum)
+    cum = cum / np.max(cum)
+
+    # cum_y = []
+    # for i in range(definition):
+    #     cum_y.append(img_min + (i * img_range)/definition)
+
+    # plt.plot(cum_y,cum)
+    # plt.show()
+
+
+    res_high = list(map(lambda i: i> max_porcent, cum)).index(True)
+    res_max = (res_high * img_range)/definition + img_min
+
+    res_low = list(map(lambda i: i> min_porcent, cum)).index(True)
+    res_min = (res_low * img_range)/definition + img_min
+
+    # if i_range: res_min = res_max - i_range
+    # if i_min:
+    #     if res_min < i_min:
+    #         res_min = i_min
+
+    # print(res_min)
+    # print(res_max)
+
+    img = np.where(img > res_max, res_max,img)
+    img = np.where(img < res_min, res_min,img)
 
     output = sitk.GetImageFromArray(img)
     output.SetSpacing(input_img.GetSpacing())
@@ -334,7 +380,6 @@ def CorrectHisto(filepath,outpath,min,max):
     writer.SetFileName(outpath)
     writer.Execute(output)
     return output
-
 
 def CloseCBCTSeg(filepath,outpath, closing_radius = 5):
     """
@@ -458,3 +503,24 @@ def SavePrediction(data,input_img, outpath):
     writer = sitk.ImageFileWriter()
     writer.SetFileName(outpath)
     writer.Execute(output)
+
+def PlotState(img,label,x,y,z):
+    img_shape = img.shape
+    label_shape = label.shape
+    print(f"image shape: {img_shape}, label shape: {label_shape}")
+    plt.figure("scan", (18, 6))
+    plt.subplot(3, 2, 1)
+    plt.title("scan")
+    plt.imshow(img[0, :, :, z].detach().cpu(), cmap="gray")
+    plt.subplot(3, 2, 2)
+    plt.title("seg")
+    plt.imshow(label[0, :, :, z].detach().cpu())
+    plt.subplot(3, 2, 3)
+    plt.imshow(img[0, :, y, :].detach().cpu(), cmap="gray")
+    plt.subplot(3, 2, 4)
+    plt.imshow(label[0, :, y, :].detach().cpu())
+    plt.subplot(3, 2, 5)
+    plt.imshow(img[0, x, :, :].detach().cpu(), cmap="gray")
+    plt.subplot(3, 2, 6)
+    plt.imshow(label[0, x, :, :].detach().cpu())
+    plt.show()

@@ -10,13 +10,12 @@ from utils import(
 	CorrectHisto,
 )
 
-
 def main(args):
 	img_fn_array = []
 	seg_fn_array = []
 
 	outpath = os.path.normpath("/".join([args.out]))
-		
+
 	if args.dir:
 		normpath = os.path.normpath("/".join([args.dir, '**', '']))
 		for img_fn in glob.iglob(normpath, recursive=True):
@@ -32,16 +31,14 @@ def main(args):
 					img_obj["img"] = img_fn
 					img_obj["out"] = outpath + img_fn.replace(args.dir,'')
 					seg_fn_array.append(img_obj)
+
 	# for img_obj in seg_fn_array:
 	# 	image = img_obj["img"]
 	# 	out = img_obj["out"]
-		
+
 	# 	if not os.path.exists(os.path.dirname(out)):
 	# 		os.makedirs(os.path.dirname(out))
 	# 	CloseCBCTSeg(image, out, args.radius)
-
-	min = -1000
-	max = 2500
 
 	for img_obj in img_fn_array:
 		image = img_obj["img"]
@@ -49,8 +46,7 @@ def main(args):
 		
 		if not os.path.exists(os.path.dirname(out)):
 			os.makedirs(os.path.dirname(out))
-		CorrectHisto(image, out, min,max)
-		
+		CorrectHisto(image, out,0.05, 0.99)
 
 if __name__ ==  '__main__':
     parser = argparse.ArgumentParser(description='MD_reader', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
