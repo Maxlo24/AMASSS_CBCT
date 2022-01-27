@@ -32,7 +32,7 @@ def main(args):
 
     cropSize = args.crop_size
 
-    train_transforms = CreateTrainTransform(cropSize,10,2)
+    train_transforms = CreateTrainTransform(cropSize,1,2)
     val_transforms = CreateValidationTransform()
 
     trainingSet,validationSet = GetTrainValDataset(args.dir_patients,args.test_percentage/100)
@@ -71,14 +71,16 @@ def main(args):
         pin_memory=True
     )
     
-    case_num = 0
+    # case_num = 0
     # img = val_ds[case_num]["scan"]
     # label = val_ds[case_num]["seg"]
-    # PlotState(img,label,40,40,15)
+    # size = img.shape
+    # PlotState(img,label,int(size[1]/2),int(size[2]/2),int(size[1]/3.5))
     # for i,data in enumerate(train_ds[case_num]):
     #     img = data["scan"]
     #     label = data["seg"]
-    #     PlotState(img,label,32,32,32)
+    #     size = img.shape
+    #     PlotState(img,label,int(size[1]/2),int(size[2]/2),int(size[1]/2))
 
     TM = TrainingMaster(
         model = model,
@@ -92,9 +94,8 @@ def main(args):
         )
 
     # TM.Train()
-    TM.Validate()
-    # TM.Process(10)
-
+    # TM.Validate()
+    TM.Process(10)
 
 class TrainingMaster:
     def __init__(
@@ -134,6 +135,8 @@ class TrainingMaster:
         self.loss_lst = []
         self.dice_lst = []
 
+        self.predictor = 10
+
     def Process(self,num_epoch):
         for epoch in range(num_epoch):
             self.Train()
@@ -151,9 +154,9 @@ class TrainingMaster:
         for step, batch in enumerate(epoch_iterator):
             steps += 1
             x, y = (batch["scan"].to(self.device), batch["seg"].to(self.device))
-            print(x.shape,x.dtype,y.shape,y.dtype)
+            # print(x.shape,x.dtype,y.shape,y.dtype)
             logit_map = self.model(x)
-            print(logit_map.shape,logit_map.dtype)
+            # print(logit_map.shape,logit_map.dtype)
             loss = self.loss_function(logit_map, y)
             loss.backward()
             epoch_loss += loss.item()
@@ -166,6 +169,7 @@ class TrainingMaster:
         self.loss_lst.append(epoch_loss/steps)
 
         self.tensorboard.add_scalar("Training loss",epoch_loss,self.epoch)
+        self.tensorboard.close()
 
     def Validate(self):
         self.model.eval()
@@ -176,7 +180,7 @@ class TrainingMaster:
         with torch.no_grad():
             for step, batch in enumerate(epoch_iterator_val):
                 val_inputs, val_labels = (batch["scan"].to(self.device), batch["seg"].to(self.device))
-                val_outputs = sliding_window_inference(val_inputs, self.FOV, 4, self.model)
+                val_outputs = sliding_window_inference(val_inputs, self.FOV, self.predictor, self.model,overlap=0.8)
                 val_labels_list = decollate_batch(val_labels)
                 val_labels_convert = [
                     self.post_label(val_label_tensor) for val_label_tensor in val_labels_list
@@ -203,18 +207,24 @@ class TrainingMaster:
         else:
             print("Model Was Not Saved ! Best Avg. Dice: {} Current Avg. Dice: {}".format(self.best_dice, mean_dice_val))
 
-        input_slice = val_inputs.cpu()[0, 0, :, :, 20].unsqueeze(0)
-        labels_slice = val_labels.cpu()[0, 0, :, :, 20].unsqueeze(0)
-        seg_slice = torch.argmax(val_outputs, dim=1).detach().cpu()[0, :, :, 20].unsqueeze(0)
-        input_slice1 = val_inputs.cpu()[0, 0, :, :, 25].unsqueeze(0)
-        labels_slice1 = val_labels.cpu()[0, 0, :, :, 25].unsqueeze(0)
-        seg_slice1 = torch.argmax(val_outputs, dim=1).detach().cpu()[0, :, :, 25].unsqueeze(0)
-        input_slice2 = val_inputs.cpu()[0, 0, :, :, 30].unsqueeze(0)
-        labels_slice2 = val_labels.cpu()[0, 0, :, :, 30].unsqueeze(0)
-        seg_slice2 = torch.argmax(val_outputs, dim=1).detach().cpu()[0, :, :, 30].unsqueeze(0)
+        size = val_inputs.shape[4]
+        slice_nbr = int(size/3.5)
+        input_slice = val_inputs.cpu()[0, 0, :, :, slice_nbr].unsqueeze(0)
+        labels_slice = val_labels.cpu()[0, 0, :, :, slice_nbr].unsqueeze(0)
+        seg_slice = torch.argmax(val_outputs, dim=1).detach().cpu()[0, :, :, slice_nbr].unsqueeze(0)
+        slice_nbr = int(size/3)
+        input_slice1 = val_inputs.cpu()[0, 0, :, :, slice_nbr].unsqueeze(0)
+        labels_slice1 = val_labels.cpu()[0, 0, :, :, slice_nbr].unsqueeze(0)
+        seg_slice1 = torch.argmax(val_outputs, dim=1).detach().cpu()[0, :, :, slice_nbr].unsqueeze(0)
+        slice_nbr = int(size/2)
+        input_slice2 = val_inputs.cpu()[0, 0, :, :, slice_nbr].unsqueeze(0)
+        labels_slice2 = val_labels.cpu()[0, 0, :, :, slice_nbr].unsqueeze(0)
+        seg_slice2 = torch.argmax(val_outputs, dim=1).detach().cpu()[0, :, :, slice_nbr].unsqueeze(0)
         slice_view = torch.cat((input_slice,labels_slice,seg_slice,input_slice1,labels_slice1,seg_slice1,input_slice2,labels_slice2,seg_slice2),dim=0).unsqueeze(1)
         self.tensorboard.add_images("Validation images",slice_view,self.epoch)
         self.tensorboard.add_scalar("Validation dice",mean_dice_val,self.epoch)
+        self.tensorboard.close()
+
 
 
 # #####################################
@@ -232,7 +242,7 @@ if __name__ ==  '__main__':
 
     input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="MandSeg_model")
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=10)
-    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
+    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[96,96,96])
     input_group.add_argument('-mi', '--max_iterations', type=int, help='Number of training epocs', default=250)
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=2)
     input_group.add_argument('-bs', '--batch_size', type=int, help='batch size', default=2)

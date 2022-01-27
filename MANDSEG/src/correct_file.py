@@ -46,7 +46,7 @@ def main(args):
 		
 		if not os.path.exists(os.path.dirname(out)):
 			os.makedirs(os.path.dirname(out))
-		CorrectHisto(image, out,0.05, 0.99)
+		CorrectHisto(image, out,0.03, 0.99)
 
 if __name__ ==  '__main__':
     parser = argparse.ArgumentParser(description='MD_reader', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
