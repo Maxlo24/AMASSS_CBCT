@@ -32,7 +32,7 @@ def main(args):
 
     cropSize = args.crop_size
 
-    train_transforms = CreateTrainTransform(cropSize)
+    train_transforms = CreateTrainTransform(cropSize,10,2)
     val_transforms = CreateValidationTransform()
 
     trainingSet,validationSet = GetTrainValDataset(args.dir_patients,args.test_percentage/100)
@@ -71,7 +71,7 @@ def main(args):
         pin_memory=True
     )
     
-    # case_num = 1
+    case_num = 0
     # img = val_ds[case_num]["scan"]
     # label = val_ds[case_num]["seg"]
     # PlotState(img,label,40,40,15)
@@ -93,7 +93,7 @@ def main(args):
 
     # TM.Train()
     # TM.Validate()
-    TM.Process(10)
+    # TM.Process(10)
 
 
 class TrainingMaster:
@@ -151,8 +151,9 @@ class TrainingMaster:
         for step, batch in enumerate(epoch_iterator):
             step += 1
             x, y = (batch["scan"].to(self.device), batch["seg"].to(self.device))
+            print(x.shape,x.dtype,y.shape,y.dtype)
             logit_map = self.model(x)
-            # print(logit_map.shape,x.shape,y.shape)
+            print(logit_map.shape,logit_map.dtype)
             loss = self.loss_function(logit_map, y)
             loss.backward()
             epoch_loss += loss.item()

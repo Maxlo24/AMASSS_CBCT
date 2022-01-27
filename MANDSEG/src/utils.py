@@ -41,7 +41,7 @@ from monai.transforms import (
     Lambdad,
     CastToTyped,
     SpatialCrop,
-    BorderPad
+    BorderPadd
 )
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -58,28 +58,23 @@ DATA_TYPE = torch.float32
    ##    ##     ## ##     ## ##    ##  ######  ##        #######  ##     ## ##     ##  ######  
 
 
-def CreateTrainTransform(CropSize = [64,64,64]):
+def CreateTrainTransform(CropSize = [64,64,64],padding=10,num_sample=10):
     train_transforms = Compose(
         [
         LoadImaged(keys=["scan", "seg"]),
         AddChanneld(keys=["scan", "seg"]),
-        Spacingd(
-            keys=["scan", "seg"],
-            pixdim=(1.5, 1.5, 2.0),
-            mode=("bilinear", "nearest"),
-        ),
-        Orientationd(keys=["scan", "seg"], axcodes="RAS"),
+        BorderPadd(keys=["scan", "seg"],spatial_border=padding),
         ScaleIntensityd(
             keys=["scan"],minv = 0.0, maxv = 1.0, factor = None
         ),
-        CropForegroundd(keys=["scan", "seg"], source_key="scan"),
+        # CropForegroundd(keys=["scan", "seg"], source_key="scan"),
         RandCropByPosNegLabeld(
             keys=["scan", "seg"],
             label_key="seg",
             spatial_size=CropSize,
             pos=1,
             neg=1,
-            num_samples=10,
+            num_samples=num_sample,
             image_key="scan",
             image_threshold=0,
         ),
@@ -103,11 +98,11 @@ def CreateTrainTransform(CropSize = [64,64,64]):
             prob=0.10,
             max_k=3,
         ),
-        # RandShiftIntensityd(
-        #     keys=["scan"],
-        #     offsets=0.10,
-        #     prob=0.50,
-        # ),
+        RandShiftIntensityd(
+            keys=["scan"],
+            offsets=0.10,
+            prob=0.50,
+        ),
         ToTensord(keys=["scan", "seg"]),
         ]
     )
@@ -120,11 +115,10 @@ def CreateValidationTransform():
         [
             LoadImaged(keys=["scan", "seg"]),
             AddChanneld(keys=["scan", "seg"]),
-            Orientationd(keys=["scan", "seg"], axcodes="RAS"),
             ScaleIntensityd(
             keys=["scan"],minv = 0.0, maxv = 1.0, factor = None
             ),
-            CropForegroundd(keys=["scan", "seg"], source_key="scan"),
+            # CropForegroundd(keys=["scan", "seg"], source_key="scan"),
             ToTensord(keys=["scan", "seg"]),
         ]
     )
@@ -140,6 +134,7 @@ def CreateValidationTransform():
     #         ToTensord(keys=["scan", "seg"]),
     #     ]
     # )
+
     return val_transforms
 
 def CreatePredictTransform(data):
