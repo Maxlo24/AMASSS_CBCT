@@ -92,7 +92,7 @@ def main(args):
         )
 
     # TM.Train()
-    # TM.Validate()
+    TM.Validate()
     # TM.Process(10)
 
 
@@ -144,12 +144,12 @@ class TrainingMaster:
     def Train(self):
         self.model.train()
         epoch_loss = 0
-        step = 0
+        steps = 0
         epoch_iterator = tqdm(
             self.train_loader, desc="Training (loss=X.X)", dynamic_ncols=True
         )
         for step, batch in enumerate(epoch_iterator):
-            step += 1
+            steps += 1
             x, y = (batch["scan"].to(self.device), batch["seg"].to(self.device))
             print(x.shape,x.dtype,y.shape,y.dtype)
             logit_map = self.model(x)
@@ -163,7 +163,7 @@ class TrainingMaster:
                 "Training (loss=%2.5f)" % (loss)
             )
 
-        self.loss_lst.append(epoch_loss)
+        self.loss_lst.append(epoch_loss/steps)
 
         self.tensorboard.add_scalar("Training loss",epoch_loss,self.epoch)
 
@@ -192,6 +192,7 @@ class TrainingMaster:
                     "Validate (dice=%2.5f)" % (dice)
                 )
             self.dice_metric.reset()
+
         mean_dice_val = np.mean(dice_vals)
         self.dice_lst.append(mean_dice_val)
 
@@ -202,6 +203,17 @@ class TrainingMaster:
         else:
             print("Model Was Not Saved ! Best Avg. Dice: {} Current Avg. Dice: {}".format(self.best_dice, mean_dice_val))
 
+        input_slice = val_inputs.cpu()[0, 0, :, :, 20].unsqueeze(0)
+        labels_slice = val_labels.cpu()[0, 0, :, :, 20].unsqueeze(0)
+        seg_slice = torch.argmax(val_outputs, dim=1).detach().cpu()[0, :, :, 20].unsqueeze(0)
+        input_slice1 = val_inputs.cpu()[0, 0, :, :, 25].unsqueeze(0)
+        labels_slice1 = val_labels.cpu()[0, 0, :, :, 25].unsqueeze(0)
+        seg_slice1 = torch.argmax(val_outputs, dim=1).detach().cpu()[0, :, :, 25].unsqueeze(0)
+        input_slice2 = val_inputs.cpu()[0, 0, :, :, 30].unsqueeze(0)
+        labels_slice2 = val_labels.cpu()[0, 0, :, :, 30].unsqueeze(0)
+        seg_slice2 = torch.argmax(val_outputs, dim=1).detach().cpu()[0, :, :, 30].unsqueeze(0)
+        slice_view = torch.cat((input_slice,labels_slice,seg_slice,input_slice1,labels_slice1,seg_slice1,input_slice2,labels_slice2,seg_slice2),dim=0).unsqueeze(1)
+        self.tensorboard.add_images("Validation images",slice_view,self.epoch)
         self.tensorboard.add_scalar("Validation dice",mean_dice_val,self.epoch)
 
 
@@ -219,11 +231,11 @@ if __name__ ==  '__main__':
     input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/Models')
 
     input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="MandSeg_model")
-    input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=20)
+    input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=10)
     input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
     input_group.add_argument('-mi', '--max_iterations', type=int, help='Number of training epocs', default=250)
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=2)
-    input_group.add_argument('-bs', '--batch_size', type=int, help='batch size', default=1)
+    input_group.add_argument('-bs', '--batch_size', type=int, help='batch size', default=2)
     input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=0)
 
 
