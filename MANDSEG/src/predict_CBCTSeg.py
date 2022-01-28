@@ -42,16 +42,16 @@ def main(args):
         for data in data_list:
 
             pred_img,input_img = CreatePredictTransform(data)
-            print(pred_img.size())
-            val_inputs = torch.unsqueeze(pred_img, 1)
-            print(val_inputs.size())
+            # print(pred_img.size())
+            val_inputs = pred_img.unsqueeze(0)
+            # print(val_inputs.size())
             val_outputs = val_inputs
             val_outputs = sliding_window_inference(
                 inputs= val_inputs.to(DEVICE),
                 roi_size = cropSize, 
                 sw_batch_size= nbr_workers, 
                 predictor= net, 
-                overlap=0.8
+                overlap=0.25
             )
 
             out_img = torch.argmax(val_outputs, dim=1).detach().cpu()
@@ -84,9 +84,9 @@ if __name__ == "__main__":
 
     
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5,0.5,0.5])
-    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[128,128,128])
+    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=2)
-    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=0)
+    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=1)
 
     args = parser.parse_args()
     

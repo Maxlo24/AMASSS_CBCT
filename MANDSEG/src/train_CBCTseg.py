@@ -44,6 +44,10 @@ def main(args):
         cropSize=cropSize
     ).to(DEVICE)
 
+
+    model.load_state_dict(torch.load('/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/data/best_model_02.pth',map_location=DEVICE))
+
+
     torch.backends.cudnn.benchmark = True
 
     train_ds = CacheDataset(
@@ -94,8 +98,8 @@ def main(args):
         )
 
     # TM.Train()
-    # TM.Validate()
-    TM.Process(10)
+    TM.Validate()
+    # TM.Process(10)
 
 class TrainingMaster:
     def __init__(
@@ -180,7 +184,7 @@ class TrainingMaster:
         with torch.no_grad():
             for step, batch in enumerate(epoch_iterator_val):
                 val_inputs, val_labels = (batch["scan"].to(self.device), batch["seg"].to(self.device))
-                val_outputs = sliding_window_inference(val_inputs, self.FOV, self.predictor, self.model,overlap=0.8)
+                val_outputs = sliding_window_inference(val_inputs, self.FOV, self.predictor, self.model,overlap=0.2)
                 val_labels_list = decollate_batch(val_labels)
                 val_labels_convert = [
                     self.post_label(val_label_tensor) for val_label_tensor in val_labels_list
@@ -208,7 +212,7 @@ class TrainingMaster:
             print("Model Was Not Saved ! Best Avg. Dice: {} Current Avg. Dice: {}".format(self.best_dice, mean_dice_val))
 
         size = val_inputs.shape[4]
-        slice_nbr = int(size/3.5)
+        slice_nbr = int(size/4)
         input_slice = val_inputs.cpu()[0, 0, :, :, slice_nbr].unsqueeze(0)
         labels_slice = val_labels.cpu()[0, 0, :, :, slice_nbr].unsqueeze(0)
         seg_slice = torch.argmax(val_outputs, dim=1).detach().cpu()[0, :, :, slice_nbr].unsqueeze(0)
@@ -224,6 +228,24 @@ class TrainingMaster:
         self.tensorboard.add_images("Validation images",slice_view,self.epoch)
         self.tensorboard.add_scalar("Validation dice",mean_dice_val,self.epoch)
         self.tensorboard.close()
+
+        data = torch.argmax(val_outputs, dim=1).detach().cpu().type(torch.int16)
+        print(data.shape)
+        img = data.numpy()[0][:]
+        output = sitk.GetImageFromArray(img)
+
+        writer = sitk.ImageFileWriter()
+        writer.SetFileName('seg.nii.gz')
+        writer.Execute(output)
+
+        img = val_inputs.squeeze(0).numpy()[0][:]
+        output = sitk.GetImageFromArray(img)
+
+        writer = sitk.ImageFileWriter()
+        writer.SetFileName('scan.nii.gz')
+        writer.Execute(output)
+
+
 
 
 
@@ -242,7 +264,7 @@ if __name__ ==  '__main__':
 
     input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="MandSeg_model")
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=10)
-    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[96,96,96])
+    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
     input_group.add_argument('-mi', '--max_iterations', type=int, help='Number of training epocs', default=250)
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=2)
     input_group.add_argument('-bs', '--batch_size', type=int, help='batch size', default=2)

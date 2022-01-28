@@ -140,12 +140,12 @@ def CreateValidationTransform():
 def CreatePredictTransform(data):
 
     pre_transforms = Compose(
-        [AddChannel(),ScaleIntensity(minv = 0.0, maxv = 1.0, factor = None)]
+        [AddChannel(),ScaleIntensity(minv = 0.0, maxv = 1.0, factor = None),ToTensor()]
     )
 
     input_img = sitk.ReadImage(data) 
     img = sitk.GetArrayFromImage(input_img)
-    pre_img = torch.from_numpy(pre_transforms(img))
+    pre_img = pre_transforms(img)
     # pre_img = pre_img.type(DATA_TYPE)
     return pre_img,input_img
 
