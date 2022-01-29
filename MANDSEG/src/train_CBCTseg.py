@@ -32,7 +32,7 @@ def main(args):
 
     cropSize = args.crop_size
 
-    train_transforms = CreateTrainTransform(cropSize,1,2)
+    train_transforms = CreateTrainTransform(cropSize,1,10)
     val_transforms = CreateValidationTransform()
 
     trainingSet,validationSet = GetTrainValDataset(args.dir_patients,args.test_percentage/100)
@@ -43,10 +43,6 @@ def main(args):
         label_nbr=label_nbr,
         cropSize=cropSize
     ).to(DEVICE)
-
-
-    model.load_state_dict(torch.load('/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/data/best_model_02.pth',map_location=DEVICE))
-
 
     torch.backends.cudnn.benchmark = True
 
@@ -98,8 +94,8 @@ def main(args):
         )
 
     # TM.Train()
-    TM.Validate()
-    # TM.Process(10)
+    # TM.Validate()
+    TM.Process(args.max_epoch)
 
 class TrainingMaster:
     def __init__(
@@ -169,10 +165,9 @@ class TrainingMaster:
             epoch_iterator.set_description(
                 "Training (loss=%2.5f)" % (loss)
             )
-
-        self.loss_lst.append(epoch_loss/steps)
-
-        self.tensorboard.add_scalar("Training loss",epoch_loss,self.epoch)
+        mean_loss = epoch_loss/steps
+        self.loss_lst.append(mean_loss)
+        self.tensorboard.add_scalar("Training loss",mean_loss,self.epoch)
         self.tensorboard.close()
 
     def Validate(self):
@@ -211,6 +206,12 @@ class TrainingMaster:
         else:
             print("Model Was Not Saved ! Best Avg. Dice: {} Current Avg. Dice: {}".format(self.best_dice, mean_dice_val))
 
+        self.tensorboard.add_scalar("Validation dice",mean_dice_val,self.epoch)
+        self.PrintSlices(val_inputs,val_labels,val_outputs)
+        self.tensorboard.close()
+    
+    def PrintSlices(self,val_inputs,val_labels,val_outputs):
+
         size = val_inputs.shape[4]
         slice_nbr = int(size/4)
         input_slice = val_inputs.cpu()[0, 0, :, :, slice_nbr].unsqueeze(0)
@@ -226,24 +227,22 @@ class TrainingMaster:
         seg_slice2 = torch.argmax(val_outputs, dim=1).detach().cpu()[0, :, :, slice_nbr].unsqueeze(0)
         slice_view = torch.cat((input_slice,labels_slice,seg_slice,input_slice1,labels_slice1,seg_slice1,input_slice2,labels_slice2,seg_slice2),dim=0).unsqueeze(1)
         self.tensorboard.add_images("Validation images",slice_view,self.epoch)
-        self.tensorboard.add_scalar("Validation dice",mean_dice_val,self.epoch)
-        self.tensorboard.close()
 
-        data = torch.argmax(val_outputs, dim=1).detach().cpu().type(torch.int16)
-        print(data.shape)
-        img = data.numpy()[0][:]
-        output = sitk.GetImageFromArray(img)
+        # data = torch.argmax(val_outputs, dim=1).detach().cpu().type(torch.int16)
+        # print(data.shape)
+        # img = data.numpy()[0][:]
+        # output = sitk.GetImageFromArray(img)
 
-        writer = sitk.ImageFileWriter()
-        writer.SetFileName('seg.nii.gz')
-        writer.Execute(output)
+        # writer = sitk.ImageFileWriter()
+        # writer.SetFileName('seg.nii.gz')
+        # writer.Execute(output)
 
-        img = val_inputs.squeeze(0).numpy()[0][:]
-        output = sitk.GetImageFromArray(img)
+        # img = val_inputs.squeeze(0).numpy()[0][:]
+        # output = sitk.GetImageFromArray(img)
 
-        writer = sitk.ImageFileWriter()
-        writer.SetFileName('scan.nii.gz')
-        writer.Execute(output)
+        # writer = sitk.ImageFileWriter()
+        # writer.SetFileName('scan.nii.gz')
+        # writer.Execute(output)
 
 
 
@@ -265,7 +264,7 @@ if __name__ ==  '__main__':
     input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="MandSeg_model")
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=10)
     input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
-    input_group.add_argument('-mi', '--max_iterations', type=int, help='Number of training epocs', default=250)
+    input_group.add_argument('-me', '--max_epoch', type=int, help='Number of training epocs', default=250)
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=2)
     input_group.add_argument('-bs', '--batch_size', type=int, help='batch size', default=2)
     input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=0)

@@ -1,5 +1,6 @@
 from models import*
 from utils import*
+import time
 
 import argparse
 
@@ -17,7 +18,7 @@ def main(args):
         basename = os.path.basename(img_fn)
 
         if True in [ext in basename for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
-            if "_scan" in basename:
+            if "_Pred" not in basename:
                 data_list.append(img_fn)
 
 
@@ -38,53 +39,60 @@ def main(args):
 
     print("Loading data from", args.dir)
 
+    startTime = time.time()
+
     with torch.no_grad():
         for data in data_list:
 
-            pred_img,input_img = CreatePredictTransform(data)
-            # print(pred_img.size())
-            val_inputs = pred_img.unsqueeze(0)
+            input_img,ref_img = CreatePredictTransform(data,args.spacing[0])
+            print(input_img.size())
+            rescaled_img = input_img
+            input_img = input_img.permute(0,2,3,1)
+            val_inputs = input_img.unsqueeze(0)
             # print(val_inputs.size())
-            val_outputs = val_inputs
-            val_outputs = sliding_window_inference(
-                inputs= val_inputs.to(DEVICE),
-                roi_size = cropSize, 
-                sw_batch_size= nbr_workers, 
-                predictor= net, 
-                overlap=0.25
-            )
+            val_outputs = sliding_window_inference(val_inputs, cropSize, nbr_workers, net,overlap=0.25)
 
-            out_img = torch.argmax(val_outputs, dim=1).detach().cpu()
-            out_img = out_img.type(torch.int16)
-            # print(out_img,np.shape(out_img))
+            pred_data = torch.argmax(val_outputs, dim=1).detach().cpu().type(torch.int16)
+            pred_data = pred_data.permute(0,3,1,2)
+
 
             baseName = os.path.basename(data)
             scan_name= baseName.split(".")
-            pred_name = ""
-            for i,element in enumerate(scan_name):
-                if i == 0:
-                    pred_name += element.replace("scan","Pred")
-                else:
-                    pred_name += "." + element
+            print(baseName)
+            if "_scan" in baseName:
+                pred_name = baseName.replace("_scan","_Pred")
+            elif "_Scan" in baseName:
+                pred_name = baseName.replace("_Scan","_Pred")
+            else:
+                pred_name = ""
+                for i,element in enumerate(scan_name):
+                    if i == 0:
+                        pred_name += element + "_Pred"
+                    else:
+                        pred_name += "." + element
 
             input_dir = os.path.dirname(data)
-            
-            SavePrediction(out_img ,input_img,os.path.join(input_dir,pred_name))
-            
-    print("Done : " + str(len(data_list)) + " scan segmented")
+            file_path = os.path.join(input_dir,pred_name)
+
+            SavePrediction(rescaled_img,ref_img,os.path.join(input_dir,scan_name[0] + "Sp2.nii.gz"))
+            SavePrediction(pred_data,ref_img,file_path)
+
+
+    stopTime = time.time()
+    print("Done : " + str(len(data_list)) + " scan segmented in :", stopTime-startTime, "seconds")
+
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Predict Landmarks', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     input_group = parser.add_argument_group('directory')
-    input_group.add_argument('--dir', type=str, help='Input directory with the scans',default=None, required=True)
-    input_group.add_argument('--load_model', type=str, help='Path of the model', default=None, required=True)
+    input_group.add_argument('--dir', type=str, help='Input directory with the scans', default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/data/test')
+    input_group.add_argument('--load_model', type=str, help='Path of the model', default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/data/best_model.pth')
     # input_group.add_argument('--out', type=str, help='Output directory with the landmarks',default=None)
-
     
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5,0.5,0.5])
-    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[64,64,64])
+    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[128,128,128])
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=2)
     input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=1)
 

@@ -41,7 +41,8 @@ from monai.transforms import (
     Lambdad,
     CastToTyped,
     SpatialCrop,
-    BorderPadd
+    BorderPadd,
+    RandAdjustContrastd,
 )
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -103,6 +104,11 @@ def CreateTrainTransform(CropSize = [64,64,64],padding=10,num_sample=10):
             offsets=0.10,
             prob=0.50,
         ),
+        RandAdjustContrastd(
+            keys=["scan"],
+            prob=0.8,
+            gamma = (0.5,2)
+        ),
         ToTensord(keys=["scan", "seg"]),
         ]
     )
@@ -116,9 +122,34 @@ def CreateValidationTransform():
             LoadImaged(keys=["scan", "seg"]),
             AddChanneld(keys=["scan", "seg"]),
             ScaleIntensityd(
-            keys=["scan"],minv = 0.0, maxv = 1.0, factor = None
+                keys=["scan"],minv = 0.0, maxv = 1.0, factor = None
             ),
             # CropForegroundd(keys=["scan", "seg"], source_key="scan"),
+            RandFlipd(
+                keys=["scan", "seg"],
+                spatial_axis=[0],
+                prob=0.20,
+            ),
+            RandFlipd(
+                keys=["scan", "seg"],
+                spatial_axis=[1],
+                prob=0.20,
+            ),
+            RandFlipd(
+                keys=["scan", "seg"],
+                spatial_axis=[2],
+                prob=0.20,
+            ),
+            RandRotate90d(
+                keys=["scan", "seg"],
+                prob=0.10,
+                max_k=3,
+            ),
+            RandAdjustContrastd(
+                keys=["scan"],
+                prob=0.8,
+                gamma = (0.5,2)
+            ),
             ToTensord(keys=["scan", "seg"]),
         ]
     )
@@ -137,17 +168,44 @@ def CreateValidationTransform():
 
     return val_transforms
 
-def CreatePredictTransform(data):
+def CreatePredictTransform(data,spacing):
 
     pre_transforms = Compose(
         [AddChannel(),ScaleIntensity(minv = 0.0, maxv = 1.0, factor = None),ToTensor()]
     )
 
     input_img = sitk.ReadImage(data) 
-    img = sitk.GetArrayFromImage(input_img)
+    img = input_img
+    img = ItkToSitk(Rescale(data,[spacing,spacing,spacing]))
+    img = sitk.GetArrayFromImage(img)
+    img = CorrectImgContrast(img,0.,0.99)
     pre_img = pre_transforms(img)
     # pre_img = pre_img.type(DATA_TYPE)
     return pre_img,input_img
+
+
+def CorrectImgContrast(img,min_porcent,max_porcent):
+    img_min = np.min(img)
+    img_max = np.max(img)
+    img_range = img_max - img_min
+    # print(img_min,img_max,img_range)
+
+    definition = 1000
+    histo = np.histogram(img,definition)
+    cum = np.cumsum(histo[0])
+    cum = cum - np.min(cum)
+    cum = cum / np.max(cum)
+
+    res_high = list(map(lambda i: i> max_porcent, cum)).index(True)
+    res_max = (res_high * img_range)/definition + img_min
+
+    res_low = list(map(lambda i: i> min_porcent, cum)).index(True)
+    res_min = (res_low * img_range)/definition + img_min
+
+    img = np.where(img > res_max, res_max,img)
+    img = np.where(img < res_min, res_min,img)
+
+    return img
 
 ######## ########     ###    #### ##    ## #### ##    ##  ######   
    ##    ##     ##   ## ##    ##  ###   ##  ##  ###   ## ##    ##  
@@ -156,105 +214,6 @@ def CreatePredictTransform(data):
    ##    ##   ##   #########  ##  ##  ####  ##  ##  #### ##    ##  
    ##    ##    ##  ##     ##  ##  ##   ###  ##  ##   ### ##    ##  
    ##    ##     ## ##     ## #### ##    ## #### ##    ##  ######   
- 
-def train(inID, outID, data_model, global_step, epoch_loss_values, max_iterations, train_loader ):
-    model = data_model["model"]
-    model.train()
-    epoch_loss = 0
-    steps = 0
-    epoch_iterator = tqdm(
-        train_loader, desc="Training (X / X Steps) (loss=X.X)", dynamic_ncols=True
-    )
-    for step, batch in enumerate(epoch_iterator):
-        steps += 1
-
-        input = torch.cat([batch[key] for key in inID],1)
-        # print(input.size())
-        x, y = (input.to(DEVICE), batch[outID].to(DEVICE))
-        # print(y.shape)
-        logit_map = model(x)
-        # print(logit_map.shape)
-        loss = data_model["loss_f"](logit_map, y)
-        loss.backward()
-        epoch_loss += loss.item()
-        data_model["optimizer"].step()
-        data_model["optimizer"].zero_grad()
-        epoch_iterator.set_description(
-            "Training (%d / %d Steps) (loss=%2.5f)" % (global_step+steps, max_iterations, loss)
-        )
-        data_model["model"] = model
-    epoch_loss /= steps
-    epoch_loss_values.append(epoch_loss)
-
-    return steps
-
-def validation(inID, outID,model,cropSize, post_label, post_pred, dice_metric, global_step, epoch_iterator_val):
-    model.eval()
-    dice_vals = list()
-    with torch.no_grad():
-        for step, batch in enumerate(epoch_iterator_val):
-            input = torch.cat([batch[key] for key in inID],1)
-            val_inputs, val_labels = (input.to(DEVICE), batch[outID].to(DEVICE))
-            val_outputs = sliding_window_inference(val_inputs, cropSize, 4, model)
-            val_labels_list = decollate_batch(val_labels)
-            val_labels_convert = [
-                post_label(val_label_tensor) for val_label_tensor in val_labels_list
-            ]
-            val_outputs_list = decollate_batch(val_outputs)
-            val_output_convert = [
-                post_pred(val_pred_tensor) for val_pred_tensor in val_outputs_list
-            ]
-            # dice = IoU_Dice(y_true_lst=val_output_convert, y_pred_lst=val_labels_convert)
-            dice_metric(y_pred=val_output_convert, y=val_labels_convert)
-            dice = dice_metric.aggregate().item()
-            dice_vals.append(dice)
-            epoch_iterator_val.set_description(
-                "Validate (%d / %d Steps) (dice=%2.5f)" % (global_step, 10.0, dice)
-            )
-        dice_metric.reset()
-    mean_dice_val = np.mean(dice_vals)
-
-    return mean_dice_val
-
-
-def validate(inID, outID,data_model,val_loader, cropSize, global_step, metric_values, dice_val_best, global_step_best, dice_metric, post_label, post_pred):
-    model = data_model["model"]
-    epoch_loss = 0
-    step = 0
-
-    epoch_iterator_val = tqdm(
-        val_loader, desc="Validate (X / X Steps) (dice=X.X)", dynamic_ncols=True
-    )
-    dice_val = validation(
-        inID=inID,
-        outID = outID,
-        model=model,
-        cropSize=cropSize,
-        global_step=global_step,
-        epoch_iterator_val=epoch_iterator_val,
-        dice_metric=dice_metric,
-        post_label=post_label,
-        post_pred=post_pred
-    )
-    metric_values.append(dice_val)
-    if dice_val > dice_val_best:
-        dice_val_best = dice_val
-        global_step_best = global_step
-        save_path = os.path.join(data_model["dir"],data_model["name"]+"_"+datetime.datetime.now().strftime("%Y_%d_%m")+"_E_"+str(global_step)+".pth")
-        torch.save(
-            model.state_dict(), save_path
-        )
-        data_model["best"] = save_path
-        print("Model Was Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(dice_val_best, dice_val))
-    else:
-        print("Model Was Not Saved ! Current Best Avg. Dice: {} Current Avg. Dice: {}".format(dice_val_best, dice_val))
-    
-    # global_step += 1
-    data_model["model"] = model
-
-    return dice_val_best, global_step_best
-
-
 
 ########  #######   #######  ##        ######  
    ##    ##     ## ##     ## ##       ##    ## 
@@ -407,6 +366,50 @@ def CloseCBCTSeg(filepath,outpath, closing_radius = 5):
     writer.SetFileName(outpath)
     writer.Execute(output)
     return output
+
+def ItkToSitk(itk_img):
+    new_sitk_img = sitk.GetImageFromArray(itk.GetArrayFromImage(itk_img), isVector=itk_img.GetNumberOfComponentsPerPixel()>1)
+    new_sitk_img.SetOrigin(tuple(itk_img.GetOrigin()))
+    new_sitk_img.SetSpacing(tuple(itk_img.GetSpacing()))
+    new_sitk_img.SetDirection(itk.GetArrayFromMatrix(itk_img.GetDirection()).flatten())
+    return new_sitk_img
+
+
+def Rescale(filepath,output_spacing=[0.5, 0.5, 0.5]):
+    print("Resample :", filepath, ", with spacing :", output_spacing)
+    img = itk.imread(filepath)
+
+    spacing = np.array(img.GetSpacing())
+    output_spacing = np.array(output_spacing)
+
+    if not np.array_equal(spacing,output_spacing):
+
+        size = itk.size(img)
+        scale = spacing/output_spacing
+
+        output_size = (np.array(size)*scale).astype(int).tolist()
+        output_origin = img.GetOrigin()
+
+        #Find new origin
+        output_physical_size = np.array(output_size)*np.array(output_spacing)
+        input_physical_size = np.array(size)*spacing
+        output_origin = np.array(output_origin) - (output_physical_size - input_physical_size)/2.0
+
+        img_info = itk.template(img)[1]
+        pixel_type = img_info[0]
+        pixel_dimension = img_info[1]
+
+        VectorImageType = itk.Image[pixel_type, pixel_dimension]
+        InterpolatorType = itk.LinearInterpolateImageFunction[VectorImageType, itk.D]
+
+        interpolator = InterpolatorType.New()
+        resampled_img = ResampleImage(img,output_size,output_spacing,output_origin,img.GetDirection(),interpolator,VectorImageType)
+        return resampled_img
+        
+    else:
+        return img
+    
+
 
 def ResampleImage(input,size,spacing,origin,direction,interpolator,VectorImageType):
         ResampleType = itk.ResampleImageFilter[VectorImageType, VectorImageType]
