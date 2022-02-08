@@ -41,14 +41,22 @@ def main(args):
 
     startTime = time.time()
 
+    net.eval()
+
     with torch.no_grad():
         for data in data_list:
 
             input_img,ref_img = CreatePredictTransform(data,args.spacing[0])
+
             print(input_img.size())
             rescaled_img = input_img
             input_img = input_img.permute(0,2,3,1)
             val_inputs = input_img.unsqueeze(0)
+            # print("IN INFO")
+            # print(val_inputs)
+            # print(torch.min(val_inputs),torch.max(val_inputs))
+            # print(val_inputs.shape)
+            # print(val_inputs.dtype)
             # print(val_inputs.size())
             val_outputs = sliding_window_inference(val_inputs, cropSize, nbr_workers, net,overlap=0.25)
 
@@ -74,7 +82,7 @@ def main(args):
             input_dir = os.path.dirname(data)
             file_path = os.path.join(input_dir,pred_name)
 
-            SavePrediction(rescaled_img,ref_img,os.path.join(input_dir,scan_name[0] + "Sp2.nii.gz"))
+            SavePrediction(input_img,ref_img,os.path.join(input_dir,scan_name[0] + "_RESCALE.nii.gz"))
             SavePrediction(pred_data,ref_img,file_path)
 
 

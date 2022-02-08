@@ -178,9 +178,9 @@ def CreatePredictTransform(data,spacing):
     img = input_img
     img = ItkToSitk(Rescale(data,[spacing,spacing,spacing]))
     img = sitk.GetArrayFromImage(img)
-    img = CorrectImgContrast(img,0.,0.99)
+    # img = CorrectImgContrast(img,0.,0.99)
     pre_img = pre_transforms(img)
-    # pre_img = pre_img.type(DATA_TYPE)
+    pre_img = pre_img.type(DATA_TYPE)
     return pre_img,input_img
 
 
@@ -254,6 +254,7 @@ def GetTrainValDataset(dir,val_percentage):
                 print("----> Unrecognise CBCT file found at :", img_fn)
 
 
+    # print(data_dic)
     error = False
     folder_dic = {}
     for folder,patients in data_dic.items():
