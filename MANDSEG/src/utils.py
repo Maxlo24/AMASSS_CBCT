@@ -22,6 +22,7 @@ from monai.transforms import (
     AddChannel,
     Compose,
     CropForegroundd,
+    LoadImage,
     LoadImaged,
     Orientationd,
     RandFlipd,
@@ -32,6 +33,7 @@ from monai.transforms import (
     ScaleIntensity,
     Spacingd,
     Spacing,
+    Rotate90d,
     RandRotate90d,
     ToTensord,
     ToTensor,
@@ -43,6 +45,8 @@ from monai.transforms import (
     SpatialCrop,
     BorderPadd,
     RandAdjustContrastd,
+    HistogramNormalized,
+    NormalizeIntensityd,
 )
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -167,6 +171,20 @@ def CreateValidationTransform():
     # )
 
     return val_transforms
+
+def CreatePredTransform():
+    pred_transforms = Compose(
+        [
+            LoadImaged(keys=["scan"]),
+            AddChanneld(keys=["scan"]),
+            ScaleIntensityd(
+                keys=["scan"],minv = 0.0, maxv = 1.0, factor = None
+            ),
+            Spacingd(keys=["scan"],pixdim=[0.5,0.5,0.5]),
+            ToTensord(keys=["scan"]),
+        ]
+    )
+    return pred_transforms
 
 def CreatePredictTransform(data,spacing):
 
@@ -487,11 +505,13 @@ def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],outpath=-1):
         return img
 
 
-def SavePrediction(data,input_img, outpath):
+def SavePrediction(data,filepath, outpath):
 
     print("Saving prediction to : ", outpath)
 
     # print(data)
+
+    input_img = sitk.ReadImage(filepath) 
 
     img = data.numpy()[0][:]
     output = sitk.GetImageFromArray(img)

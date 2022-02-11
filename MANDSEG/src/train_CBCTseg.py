@@ -158,6 +158,7 @@ class TrainingMaster:
         for step, batch in enumerate(epoch_iterator):
             steps += 1
             x, y = (batch["scan"].to(self.device), batch["seg"].to(self.device))
+            x, y = self.RandomPermutChannels(x,y)
             # print(x.shape,x.dtype,y.shape,y.dtype)
             logit_map = self.model(x)
             # print(logit_map.shape,logit_map.dtype)
@@ -174,6 +175,8 @@ class TrainingMaster:
         self.tensorboard.add_scalar("Training loss",mean_loss,self.epoch)
         self.tensorboard.close()
 
+
+
     def Validate(self):
         self.model.eval()
         dice_vals = list()
@@ -183,6 +186,7 @@ class TrainingMaster:
         with torch.no_grad():
             for step, batch in enumerate(epoch_iterator_val):
                 val_inputs, val_labels = (batch["scan"].to(self.device), batch["seg"].to(self.device))
+                val_inputs, val_labels = self.RandomPermutChannels(val_inputs,val_labels)
 
                 # print("IN INFO")
                 # print(val_inputs)
@@ -221,9 +225,25 @@ class TrainingMaster:
 
         self.tensorboard.add_scalar("Validation dice",mean_dice_val,self.epoch)
 
-        self.PrintSlices(val_inputs,val_labels,0)
+        self.PrintSlices(val_inputs,val_labels,val_outputs)
         self.tensorboard.close()
     
+    def RandomPermutChannels(self,batch,batch2):
+        prob = np.random.rand()
+        if prob < 0.25:
+            permImg = batch.permute(0,1,2,4,3)
+            permImg2 = batch2.permute(0,1,2,4,3)
+        elif prob < 0.50:
+            permImg = batch.permute(0,1,4,3,2)
+            permImg2 = batch2.permute(0,1,4,3,2)
+        elif prob < 0.75:
+            permImg = batch.permute(0,1,3,2,4)
+            permImg2 = batch2.permute(0,1,3,2,4)
+        else:
+            permImg = batch
+            permImg2 = batch2
+        return permImg,permImg2
+        
     def PrintSlices(self,val_inputs,val_labels,val_outputs):
 
         size = val_inputs.shape[4]
@@ -237,7 +257,7 @@ class TrainingMaster:
 
             inpt_lst.append(val_inputs.cpu()[0, 0, :, :, slice_nbr].unsqueeze(0))
             lab_lst.append(val_labels.cpu()[0, 0, :, :, slice_nbr].unsqueeze(0))
-            seg_lst.append(seg.cpu()[0, 0, :, :, slice_nbr].unsqueeze(0))
+            seg_lst.append(seg.cpu()[0, :, :, slice_nbr].unsqueeze(0))
 
         img_lst = inpt_lst + lab_lst + seg_lst
         slice_view = torch.cat(img_lst,dim=0).unsqueeze(1)
