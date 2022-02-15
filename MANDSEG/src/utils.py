@@ -12,6 +12,8 @@ import torch
 import datetime
 import glob
 import sys
+import cc3d
+
 
 # ----- MONAI ------
 
@@ -304,14 +306,13 @@ def GetTrainValDataset(dir,val_percentage):
 
 def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-3000):
 
-    print("Reading:", filepath)
+    print("Correcting scan contrast :", filepath)
     input_img = sitk.ReadImage(filepath) 
     img = sitk.GetArrayFromImage(input_img)
 
     img_min = np.min(img)
     img_max = np.max(img)
     img_range = img_max - img_min
-    # print(img_min,img_max,img_range)
 
     definition = 1000
     histo = np.histogram(img,definition)
@@ -319,27 +320,11 @@ def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-300
     cum = cum - np.min(cum)
     cum = cum / np.max(cum)
 
-    # cum_y = []
-    # for i in range(definition):
-    #     cum_y.append(img_min + (i * img_range)/definition)
-
-    # plt.plot(cum_y,cum)
-    # plt.show()
-
-
     res_high = list(map(lambda i: i> max_porcent, cum)).index(True)
     res_max = (res_high * img_range)/definition + img_min
 
     res_low = list(map(lambda i: i> min_porcent, cum)).index(True)
     res_min = (res_low * img_range)/definition + img_min
-
-    # if i_range: res_min = res_max - i_range
-    # if i_min:
-    #     if res_min < i_min:
-    #         res_min = i_min
-
-    # print(res_min)
-    # print(res_max)
 
     img = np.where(img > res_max, res_max,img)
     img = np.where(img < res_min, res_min,img)
@@ -378,8 +363,8 @@ def CloseCBCTSeg(filepath,outpath, closing_radius = 5):
     output.SetDirection(input_img.GetDirection())
     output.SetOrigin(input_img.GetOrigin())
 
-    output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
-    output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
+    # output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
+    # output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
 
     writer = sitk.ImageFileWriter()
     writer.SetFileName(outpath)
@@ -430,22 +415,24 @@ def Rescale(filepath,output_spacing=[0.5, 0.5, 0.5]):
     
 
 
-def ResampleImage(input,size,spacing,origin,direction,interpolator,VectorImageType):
-        ResampleType = itk.ResampleImageFilter[VectorImageType, VectorImageType]
+def ResampleImage(input,size,spacing,origin,direction,interpolator,IVectorImageType,OVectorImageType):
+        ResampleType = itk.ResampleImageFilter[IVectorImageType, OVectorImageType]
+
+        # print(input)
 
         resampleImageFilter = ResampleType.New()
+        resampleImageFilter.SetInput(input)
         resampleImageFilter.SetOutputSpacing(spacing.tolist())
         resampleImageFilter.SetOutputOrigin(origin)
         resampleImageFilter.SetOutputDirection(direction)
         resampleImageFilter.SetInterpolator(interpolator)
         resampleImageFilter.SetSize(size)
-        resampleImageFilter.SetInput(input)
         resampleImageFilter.Update()
 
         resampled_img = resampleImageFilter.GetOutput()
         return resampled_img
 
-def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],outpath=-1):
+def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],interpolator="NearestNeighbor",outpath=-1):
     """
     Set the spacing of the image at the wanted scale 
 
@@ -462,6 +449,15 @@ def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],outpath=-1):
     print("Reading:", filepath)
     img = itk.imread(filepath)
 
+    # Dimension = 3
+    # InputPixelType = itk.D
+
+    # InputImageType = itk.Image[InputPixelType, Dimension]
+
+    # reader = itk.ImageFileReader[InputImageType].New()
+    # reader.SetFileName(filepath)
+    # img = reader.GetOutput()
+
     spacing = np.array(img.GetSpacing())
     output_spacing = np.array(output_spacing)
 
@@ -474,25 +470,27 @@ def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],outpath=-1):
         output_origin = img.GetOrigin()
 
         #Find new origin
-        output_physical_size = np.array(output_size)*np.array(output_spacing)
-        input_physical_size = np.array(size)*spacing
-        output_origin = np.array(output_origin) - (output_physical_size - input_physical_size)/2.0
+        # output_physical_size = np.array(output_size)*np.array(output_spacing)
+        # input_physical_size = np.array(size)*spacing
+        # output_origin = np.array(input_origin) - (output_physical_size - input_physical_size)/2.0
 
         img_info = itk.template(img)[1]
         pixel_type = img_info[0]
         pixel_dimension = img_info[1]
 
+        print(pixel_type)
+
         VectorImageType = itk.Image[pixel_type, pixel_dimension]
 
-        if True in [seg in os.path.basename(filepath) for seg in ["seg","Seg"]]:
+        if interpolator == "NearestNeighbor":
             InterpolatorType = itk.NearestNeighborInterpolateImageFunction[VectorImageType, itk.D]
             # print("Rescale Seg with spacing :", output_spacing)
-        else:
+        elif interpolator == "Linear":
             InterpolatorType = itk.LinearInterpolateImageFunction[VectorImageType, itk.D]
             # print("Rescale Scan with spacing :", output_spacing)
 
         interpolator = InterpolatorType.New()
-        resampled_img = ResampleImage(img,output_size,output_spacing,output_origin,img.GetDirection(),interpolator,VectorImageType)
+        resampled_img = ResampleImage(img,output_size,output_spacing,output_origin,img.GetDirection(),interpolator,VectorImageType,VectorImageType)
 
         if outpath != -1:
             itk.imwrite(resampled_img, outpath)
@@ -505,23 +503,192 @@ def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],outpath=-1):
         return img
 
 
-def SavePrediction(data,filepath, outpath):
+def SavePrediction(data,ref_filepath, outpath):
 
-    print("Saving prediction to : ", outpath)
+    # print("Saving prediction to : ", outpath)
 
     # print(data)
 
-    input_img = sitk.ReadImage(filepath) 
+    ref_img = sitk.ReadImage(ref_filepath) 
 
     img = data.numpy()[0][:]
+
+    output_spacing = [0.5,0.5,0.5]
+
+
     output = sitk.GetImageFromArray(img)
-    output.SetSpacing(input_img.GetSpacing())
-    output.SetDirection(input_img.GetDirection())
-    output.SetOrigin(input_img.GetOrigin())
+    output.SetSpacing(output_spacing)
+    output.SetDirection(ref_img.GetDirection())
+    output.SetOrigin(ref_img.GetOrigin())
 
     writer = sitk.ImageFileWriter()
     writer.SetFileName(outpath)
     writer.Execute(output)
+
+
+def CleanScan(file_path):
+    input_img = sitk.ReadImage(file_path) 
+    labels_in = sitk.GetArrayFromImage(input_img)
+
+    labels_out, N = cc3d.largest_k(
+        labels_in, k=1, 
+        connectivity=26, delta=0,
+        return_N=True,
+    )
+
+    closing_radius = 8
+    output = sitk.GetImageFromArray(labels_out)
+    output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
+    output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
+
+    closed = sitk.GetArrayFromImage(output)
+
+    stats = cc3d.statistics(labels_out)
+    mand_bbox = stats['bounding_boxes'][1]
+    rng_lst = []
+    mid_lst = []
+    for slices in mand_bbox:
+        rng = slices.stop-slices.start
+        mid = (2/3)*rng+slices.start
+        rng_lst.append(rng)
+        mid_lst.append(mid)
+
+    merge_slice = int(mid_lst[0])
+    out = np.concatenate((labels_out[:merge_slice,:,:],closed[merge_slice:,:,:]),axis=0)
+
+    output = sitk.GetImageFromArray(out)
+    output.SetSpacing(input_img.GetSpacing())
+    output.SetDirection(input_img.GetDirection())
+    output.SetOrigin(input_img.GetOrigin())
+    output = sitk.Cast(output, sitk.sitkInt16)
+
+    writer = sitk.ImageFileWriter()
+    writer.SetFileName(file_path)
+    writer.Execute(output)
+
+
+
+def SetSpacingFromRef(filepath,refFile,interpolator = "NearestNeighbor",outpath=-1):
+    """
+    Set the spacing of the image the same as the reference image 
+
+    Parameters
+    ----------
+    filepath
+      image file 
+    refFile
+     path of the reference image 
+    interpolator
+     Type of interpolation 'NearestNeighbor' or 'Linear'
+    outpath
+     path to save the new image
+    """
+
+    # img = itk.imread(filepath)
+    # Dimension = 3
+    # InputPixelType = itk.D
+
+    # InputImageType = itk.Image[InputPixelType, Dimension]
+
+    # reader = itk.ImageFileReader[InputImageType].New()
+    # reader.SetFileName(filepath)
+    img = itk.imread(filepath)
+
+    
+    ref = itk.imread(refFile)
+
+    img_sp = np.array(img.GetSpacing()) 
+    img_size = np.array(itk.size(img))
+
+    ref_sp = np.array(ref.GetSpacing())
+    ref_size = np.array(itk.size(ref))
+
+    if not (np.array_equal(img_sp,ref_sp) and np.array_equal(img_size,ref_size)):
+        img_info = itk.template(img)[1]
+        Ipixel_type = img_info[0]
+        Ipixel_dimension = img_info[1]
+
+        ref_info = itk.template(ref)[1]
+        Opixel_type = ref_info[0]
+        Opixel_dimension = ref_info[1]
+
+        OVectorImageType = itk.Image[Opixel_type, Opixel_dimension]
+        IVectorImageType = itk.Image[Ipixel_type, Ipixel_dimension]
+
+        if interpolator == "NearestNeighbor":
+            InterpolatorType = itk.NearestNeighborInterpolateImageFunction[IVectorImageType, itk.D]
+            # print("Rescale Seg with spacing :", output_spacing)
+        elif interpolator == "Linear":
+            InterpolatorType = itk.LinearInterpolateImageFunction[IVectorImageType, itk.D]
+            # print("Rescale Scan with spacing :", output_spacing)
+
+        interpolator = InterpolatorType.New()
+        resampled_img = ResampleImage(img,ref_size.tolist(),ref_sp,ref.GetOrigin(),ref.GetDirection(),interpolator,IVectorImageType,OVectorImageType)
+
+        output = ItkToSitk(resampled_img)
+        output = sitk.Cast(output, sitk.sitkInt16)
+
+        if img_sp[0] > ref_sp[0]:
+            closing_radius = 4
+            output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
+            output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
+
+        if outpath != -1:
+            writer = sitk.ImageFileWriter()
+            writer.SetFileName(outpath)
+            writer.Execute(output)
+                # itk.imwrite(resampled_img, outpath)
+        return output
+
+    else:
+        output = ItkToSitk(img)
+        output = sitk.Cast(output, sitk.sitkInt16)
+        if outpath != -1:
+            writer = sitk.ImageFileWriter()
+            writer.SetFileName(outpath)
+            writer.Execute(output)
+        return output
+
+
+def ConvertSimpleItkImageToItkImage(_sitk_image: sitk.Image, _pixel_id_value):
+    """
+    Converts SimpleITK image to ITK image
+    :param _sitk_image: SimpleITK image
+    :param _pixel_id_value: Type of the pixel in SimpleITK format (for example: itk.F, itk.UC)
+    :return: ITK image
+    """
+    array: np.ndarray = sitk.GetArrayFromImage(_sitk_image)
+    itk_image: itk.Image = itk.GetImageFromArray(array)
+    itk_image = CopyImageMetaInformationFromSimpleItkImageToItkImage(itk_image, _sitk_image, _pixel_id_value)
+    return itk_image
+
+def CopyImageMetaInformationFromSimpleItkImageToItkImage(_itk_image: itk.Image, _reference_sitk_image: sitk.Image, _output_pixel_type) -> itk.Image:
+    """
+	Copies the meta information from SimpleITK image to ITK image
+    :param _itk_image: Source ITK image
+    :param _reference_sitk_image: Original SimpleITK image from which will be copied the meta information
+    :param _pixel_type: Type of the pixel in SimpleITK format (for example: itk.F, itk.UC)
+    :return: ITK image with the new meta information
+    """
+    _itk_image.SetOrigin(_reference_sitk_image.GetOrigin())
+    _itk_image.SetSpacing(_reference_sitk_image.GetSpacing())
+
+    # Setting the direction (cosines of the study coordinate axis direction in the space)
+    reference_image_direction: np.ndarray = np.eye(3)
+    np_dir_vnl = itk.GetVnlMatrixFromArray(reference_image_direction)
+    itk_image_direction = _itk_image.GetDirection()
+    itk_image_direction.GetVnlMatrix().copy_in(np_dir_vnl.data_block())
+
+    dimension: int = _itk_image.GetImageDimension()
+    input_image_type = type(_itk_image)
+    output_image_type = itk.Image[_output_pixel_type, dimension]
+
+    castImageFilter = itk.CastImageFilter[input_image_type, output_image_type].New()
+    castImageFilter.SetInput(_itk_image)
+    castImageFilter.Update()
+    result_itk_image: itk.Image = castImageFilter.GetOutput()
+
+    return result_itk_image
 
 def PlotState(img,label,x,y,z):
     img_shape = img.shape
@@ -543,3 +710,4 @@ def PlotState(img,label,x,y,z):
     plt.subplot(3, 2, 6)
     plt.imshow(label[0, x, :, :].detach().cpu())
     plt.show()
+

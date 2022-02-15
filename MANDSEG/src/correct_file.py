@@ -32,13 +32,13 @@ def main(args):
 					img_obj["out"] = outpath + img_fn.replace(args.dir,'')
 					seg_fn_array.append(img_obj)
 
-	# for img_obj in seg_fn_array:
-	# 	image = img_obj["img"]
-	# 	out = img_obj["out"]
+	for img_obj in seg_fn_array:
+		image = img_obj["img"]
+		out = img_obj["out"]
 
-	# 	if not os.path.exists(os.path.dirname(out)):
-	# 		os.makedirs(os.path.dirname(out))
-	# 	CloseCBCTSeg(image, out, args.radius)
+		if not os.path.exists(os.path.dirname(out)):
+			os.makedirs(os.path.dirname(out))
+		CloseCBCTSeg(image, out, args.radius)
 
 	for img_obj in img_fn_array:
 		image = img_obj["img"]
@@ -46,7 +46,7 @@ def main(args):
 		
 		if not os.path.exists(os.path.dirname(out)):
 			os.makedirs(os.path.dirname(out))
-		CorrectHisto(image, out,0.01, 0.98)
+		CorrectHisto(image, out,0.01, 0.99)
 
 if __name__ ==  '__main__':
     parser = argparse.ArgumentParser(description='MD_reader', formatter_class=argparse.ArgumentDefaultsHelpFormatter)

@@ -158,7 +158,7 @@ class TrainingMaster:
         for step, batch in enumerate(epoch_iterator):
             steps += 1
             x, y = (batch["scan"].to(self.device), batch["seg"].to(self.device))
-            x, y = self.RandomPermutChannels(x,y)
+            # x, y = self.RandomPermutChannels(x,y)
             # print(x.shape,x.dtype,y.shape,y.dtype)
             logit_map = self.model(x)
             # print(logit_map.shape,logit_map.dtype)
@@ -186,7 +186,7 @@ class TrainingMaster:
         with torch.no_grad():
             for step, batch in enumerate(epoch_iterator_val):
                 val_inputs, val_labels = (batch["scan"].to(self.device), batch["seg"].to(self.device))
-                val_inputs, val_labels = self.RandomPermutChannels(val_inputs,val_labels)
+                # val_inputs, val_labels = self.RandomPermutChannels(val_inputs,val_labels)
 
                 # print("IN INFO")
                 # print(val_inputs)

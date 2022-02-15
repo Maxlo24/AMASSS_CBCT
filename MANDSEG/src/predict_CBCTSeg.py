@@ -1,11 +1,13 @@
 from models import*
 from utils import*
 import time
+import os
+import shutil
 
 
 from monai.data import (
     DataLoader,
-    CacheDataset,
+    Dataset,
     SmartCacheDataset,
     load_decathlon_datalist,
     decollate_batch,
@@ -20,6 +22,14 @@ def main(args):
     spacing = args.spacing
     cropSize = args.crop_size
 
+    temp_fold = args.temp_fold
+
+    print("Loading data from", args.dir)
+
+
+    if not os.path.exists(temp_fold):
+        os.makedirs(temp_fold)
+
     data_list = []
     normpath = os.path.normpath("/".join([args.dir, '**', '']))
     for img_fn in sorted(glob.iglob(normpath, recursive=True)):
@@ -28,7 +38,9 @@ def main(args):
 
         if True in [ext in basename for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
             if "_Pred" not in basename:
-                data_list.append({"scan":img_fn, "name":img_fn})
+                new_path = os.path.join(temp_fold,basename)
+                CorrectHisto(img_fn, new_path,0.01, 0.99)
+                data_list.append({"scan":new_path, "name":img_fn, "temp_path":new_path})
 
 
 
@@ -48,13 +60,10 @@ def main(args):
 
     pred_transform = CreatePredTransform()
 
-    print("Loading data from", args.dir)
 
-    pred_ds = CacheDataset(
+    pred_ds = Dataset(
         data=data_list, 
         transform=pred_transform, 
-        cache_rate=1.0, 
-        num_workers=0
     )
     pred_loader = DataLoader(
         dataset=pred_ds,
@@ -72,77 +81,17 @@ def main(args):
     # pred_iterator = tqdm(
     #     pred_loader, desc="Pred", dynamic_ncols=True
     # )
-    # with torch.no_grad():
-    #     for step, batch in enumerate(pred_loader):
-    #         input_img, input_path = (batch["scan"].to(DEVICE), batch["name"][0])
-    #         print(input_path)
-    #         val_outputs = sliding_window_inference(input_img, cropSize, nbr_workers, net,overlap=0.5)
-
-    #         pred_data = torch.argmax(val_outputs, dim=1).detach().cpu().type(torch.int16)
-
-    #         baseName = os.path.basename(input_path)
-    #         scan_name= baseName.split(".")
-    #         # print(baseName)
-    #         if "_scan" in baseName:
-    #             pred_name = baseName.replace("_scan","_Pred")
-    #         elif "_Scan" in baseName:
-    #             pred_name = baseName.replace("_Scan","_Pred")
-    #         else:
-    #             pred_name = ""
-    #             for i,element in enumerate(scan_name):
-    #                 if i == 0:
-    #                     pred_name += element + "_Pred"
-    #                 else:
-    #                     pred_name += "." + element
-
-    #         input_dir = os.path.dirname(input_path)
-    #         file_path = os.path.join(input_dir,pred_name)
-
-    #         input_img_no_batch = input_img.squeeze(0)
-    #         input_img = input_img_no_batch
-    #         # print(input_img.shape)
-
-    #         # SavePrediction(input_img,input_path,os.path.join(input_dir,scan_name[0] + "_RESCALE_no.nii.gz"))
-
-    #         # input_img = input_img_no_batch.permute(0,1,3,2)
-    #         # print(input_img.shape)
-    #         # SavePrediction(input_img,input_path,os.path.join(input_dir,scan_name[0] + "_RESCALE_132.nii.gz"))
-
-    #         # input_img = input_img_no_batch.permute(0,2,3,1)
-    #         # print(input_img.shape)
-    #         # SavePrediction(input_img,input_path,os.path.join(input_dir,scan_name[0] + "_RESCALE_231.nii.gz"))
-
-    #         input_img = input_img_no_batch.permute(0,3,2,1)
-    #         # print(input_img.shape)
-    #         SavePrediction(input_img,input_path,os.path.join(input_dir,scan_name[0] + "_RESCALE.nii.gz"))
-            
-    #         SavePrediction(pred_data.permute(0,3,2,1),input_path,file_path)
-
-
     with torch.no_grad():
-        for data in data_list:
-
-            input_img,ref_img = CreatePredictTransform(data["scan"],args.spacing[0])
-
-            # print(input_img.size())
-            rescaled_img = input_img
-            input_img = input_img.permute(0,3,2,1)
-            val_inputs = input_img.unsqueeze(0)
-            # print("IN INFO")
-            # print(val_inputs)
-            # print(torch.min(val_inputs),torch.max(val_inputs))
-            # print(val_inputs.shape)
-            # print(val_inputs.dtype)
-            # print(val_inputs.size())
-            val_outputs = sliding_window_inference(val_inputs, cropSize, nbr_workers, net,overlap=0.25)
+        for step, batch in enumerate(pred_loader):
+            input_img, input_path,temp_path = (batch["scan"].to(DEVICE), batch["name"][0],batch["temp_path"][0])
+            print(input_path)
+            val_outputs = sliding_window_inference(input_img, cropSize, nbr_workers, net,overlap=args.precision)
 
             pred_data = torch.argmax(val_outputs, dim=1).detach().cpu().type(torch.int16)
-            pred_data = pred_data.permute(0,3,2,1)
 
-
-            baseName = os.path.basename(data["name"][0])
+            baseName = os.path.basename(input_path)
             scan_name= baseName.split(".")
-            print(baseName)
+            # print(baseName)
             if "_scan" in baseName:
                 pred_name = baseName.replace("_scan","_Pred")
             elif "_Scan" in baseName:
@@ -155,15 +104,36 @@ def main(args):
                     else:
                         pred_name += "." + element
 
-            input_dir = os.path.dirname(data["name"][0])
+            input_dir = os.path.dirname(input_path)
             file_path = os.path.join(input_dir,pred_name)
 
-            SavePrediction(input_img,ref_img,os.path.join(input_dir,scan_name[0] + "_RESCALE.nii.gz"))
-            SavePrediction(pred_data,ref_img,file_path)
+            input_img_no_batch = input_img.squeeze(0)
+            input_img = input_img_no_batch
 
+            # input_img = input_img_no_batch.permute(0,3,2,1)
+            # print(input_img.shape)
+            # SavePrediction(input_img,input_path,os.path.join(input_dir,scan_name[0] + "_RESCALE.nii.gz"))
+            # SavePrediction(input_img,input_path,file_path)
+
+            # SetSpacing(input_path,[0.5,0.5,0.5],file_path)
+            
+            SavePrediction(pred_data.permute(0,3,2,1),input_path,temp_path)
+            CleanScan(temp_path)
+            SetSpacingFromRef(
+                temp_path,
+                input_path,
+                # "Linear",
+                outpath=file_path
+                )
+
+    try:
+        shutil.rmtree(temp_fold)
+    except OSError as e:
+        print("Error: %s : %s" % (temp_fold, e.strerror))
 
     stopTime = time.time()
     print("Done : " + str(len(data_list)) + " scan segmented in :", stopTime-startTime, "seconds")
+
 
 
 
@@ -174,9 +144,13 @@ if __name__ == "__main__":
     input_group.add_argument('--dir', type=str, help='Input directory with the scans', default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/data/test')
     input_group.add_argument('--load_model', type=str, help='Path of the model', default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/data/best_model_smallNet.pth')
     # input_group.add_argument('--out', type=str, help='Output directory with the landmarks',default=None)
+    input_group.add_argument('--temp_fold', type=str, help='temporary folder', default='../temp')
     
+
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5,0.5,0.5])
     input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[128,128,128])
+    input_group.add_argument('-p', '--precision', type=float, help='precision of the prediction', default=0.2)
+
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=2)
     input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=1)
 
