@@ -39,7 +39,7 @@ def main(args):
         if True in [ext in basename for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
             if "_Pred" not in basename:
                 new_path = os.path.join(temp_fold,basename)
-                CorrectHisto(img_fn, new_path,0.01, 0.99)
+                # CorrectHisto(img_fn, new_path,0.01, 0.99)
                 data_list.append({"scan":new_path, "name":img_fn, "temp_path":new_path})
 
 
@@ -85,9 +85,9 @@ def main(args):
         for step, batch in enumerate(pred_loader):
             input_img, input_path,temp_path = (batch["scan"].to(DEVICE), batch["name"][0],batch["temp_path"][0])
             print(input_path)
-            val_outputs = sliding_window_inference(input_img, cropSize, nbr_workers, net,overlap=args.precision)
+            # val_outputs = sliding_window_inference(input_img, cropSize, nbr_workers, net,overlap=args.precision)
 
-            pred_data = torch.argmax(val_outputs, dim=1).detach().cpu().type(torch.int16)
+            # pred_data = torch.argmax(val_outputs, dim=1).detach().cpu().type(torch.int16)
 
             baseName = os.path.basename(input_path)
             scan_name= baseName.split(".")
@@ -117,8 +117,8 @@ def main(args):
 
             # SetSpacing(input_path,[0.5,0.5,0.5],file_path)
             
-            SavePrediction(pred_data.permute(0,3,2,1),input_path,temp_path)
-            CleanScan(temp_path)
+            # SavePrediction(pred_data.permute(0,3,2,1),input_path,temp_path)
+            # CleanScan(temp_path)
             SetSpacingFromRef(
                 temp_path,
                 input_path,
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     
     input_group = parser.add_argument_group('directory')
     input_group.add_argument('--dir', type=str, help='Input directory with the scans', default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/data/test')
-    input_group.add_argument('--load_model', type=str, help='Path of the model', default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/data/best_model_smallNet.pth')
+    input_group.add_argument('--load_model', type=str, help='Path of the model', default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/data/best_model_MAND.pth')
     # input_group.add_argument('--out', type=str, help='Output directory with the landmarks',default=None)
     input_group.add_argument('--temp_fold', type=str, help='temporary folder', default='../temp')
     

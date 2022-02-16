@@ -35,16 +35,18 @@ def main(args):
                 
                 if True in [txt in basename for txt in ["scan","Scan"]]:
                     patients[patient]["scan"] = img_fn
-                elif True in [txt in basename for txt in ["MX"]]:
-                    patients[patient]["MX"] = img_fn
+                # elif True in [txt in basename for txt in ["MX"]]:
+                #     patients[patient]["MX"] = img_fn
                 # elif True in [txt in basename for txt in ["MX"]]:
                 #     patients[patient]["MD"] = img_fn
                 # elif True in [txt in basename for txt in ["TM"]]:
-                #     patients[patient]["TM"] = img_fn
+                #     patients[patient]["seg"] = img_fn
                 # elif True in [txt in basename for txt in ["FACE"]]:
                 #     patients[patient]["FACE"] = img_fn                          
                 # elif True in [txt in basename for txt in ["VC"]]:
-                #     patients[patient]["VC"] = img_fn
+                #     patients[patient]["seg"] = img_fn
+                # elif True in [txt in basename for txt in ["SEGBC","seg-BC","segBC"]]: #and not True in [txt in basename for txt in ["aproxBC","regBC","BC5","scan","Scan"]]:
+                #     patients[patient]["seg"] = img_fn
 
             # print(elements_dash)
 
@@ -75,8 +77,8 @@ def main(args):
             error = True
             if patient not in invalid_patient:
                 invalid_patient.append(patient)
-        if "MX" not in data.keys():
-            print("Missing MX segmentation patient :",patient)
+        if "seg" not in data.keys():
+            print("Missing seg segmentation patient :",patient)
             error = True
             if patient not in invalid_patient:
                 invalid_patient.append(patient)
@@ -123,7 +125,8 @@ def main(args):
     for patient,data in patients.items():
 
         scan = data["scan"]
-        seg = data["MX"]
+        seg = data["seg"]
+        # print(seg)
 
         
 
@@ -136,12 +139,12 @@ def main(args):
             scan_name = patient_dir + "-" + str(N) + "_scan_Sp"+ spacing + ".nii.gz"
             seg_name = patient_dir + "-" + str(N) + "_seg_Sp"+ spacing + ".nii.gz"
 
-            SetSpacing(scan,[sp,sp,sp],os.path.join(Outpath,scan_name))
+            SetSpacing(scan,[sp,sp,sp],outpath=os.path.join(Outpath,scan_name))
             SetSpacing(seg,[sp,sp,sp],"Linear",os.path.join(Outpath,seg_name))
 
         N += 1
 
-
+    print(N)
 
 if __name__ ==  '__main__':
     parser = argparse.ArgumentParser(description='MD_reader', formatter_class=argparse.ArgumentDefaultsHelpFormatter)

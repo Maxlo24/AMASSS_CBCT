@@ -11,7 +11,7 @@ def main(args):
     print("Selected spacings : ", args.spacing)
 
     patients = {}
-    		
+
     normpath = os.path.normpath("/".join([args.input_dir, '**', '']))
     for img_fn in sorted(glob.iglob(normpath, recursive=True)):
         #  print(img_fn)
@@ -22,24 +22,28 @@ def main(args):
             elements_ = file_name.split("_")
             elements_dash = file_name.split("-")
             # print(elements_dash)
-            patient = ""
-            if len(elements_) != 0:
-                if len(elements_) > 2:
-                    patient = elements_[0] + "_" + elements_[1]
-                elif len(elements_) > 1:
-                    patient = elements_[0]
-            if len(elements_dash) >1:
-                patient = elements_dash[0]
+            # patient = ""
+            # if len(elements_) != 0:
+            #     if len(elements_) > 2:
+            #         patient = elements_[0] + "_" + elements_[1]
+            #     elif len(elements_) > 1:
+            #         patient = elements_[0]
+            # if len(elements_dash) >1:
+            #     patient = elements_dash[0]
+            patient = "RC-"+elements_[0]
+            for elem in elements_[1:-1]:
+                patient += "_" + elem
 
-            folder_name = os.path.basename(os.path.dirname(img_fn))
-            if folder_name in patient:
-                folder_name = os.path.basename(os.path.dirname(os.path.dirname(img_fn)))
-            patient = folder_name + "-" + patient
+            print(patient)
+            # folder_name = os.path.basename(os.path.dirname(img_fn))
+            # if folder_name in patient:
+            #     folder_name = os.path.basename(os.path.dirname(os.path.dirname(img_fn)))
+            # patient = folder_name + "-" + patient
 
             # print(patient)
 
             if patient not in patients.keys():
-                patients[patient] = {"dir": os.path.dirname(img_fn)}
+                patients[patient] = {}
 
             if True in [txt in basename for txt in ["scan","Scan"]]:
                 patients[patient]["scan"] = img_fn
@@ -55,33 +59,37 @@ def main(args):
     error = False
     for patient,data in patients.items():
         if "scan" not in data.keys():
-            print("Missing scan for patient :",patient,"at",data["dir"])
+            print("Missing scan for patient :",patient)
             error = True
         if "seg" not in data.keys():
-            print("Missing segmentation patient :",patient,"at",data["dir"])
+            print("Missing segmentation patient :",patient)
             error = True
 
     if error:
         print("ERROR : folder have missing/unrecognise files", file=sys.stderr)
         raise
+    
+    Outpath = args.out
+    if not os.path.exists(Outpath):
+        os.makedirs(Outpath)
 
     for patient,data in patients.items():
 
         scan = data["scan"]
         seg = data["seg"]
 
-        patient_dir = patient.split("-")[0]
-        patient_name = patient.split("-")[1]
+        # patient_dir = patient.split("-")[0]
+        # patient_name = patient.split("-")[1]
 
         # patient_dirname =  data["dir"].replace(args.input_dir,'')
-        ScanOutpath = os.path.normpath("/".join([args.out,patient_dir,"Scans"]))
-        SegOutpath = os.path.normpath("/".join([args.out,patient_dir,"Segs"]))
+        # ScanOutpath = os.path.normpath("/".join([args.out,patient_dir,"Scans"]))
+        # SegOutpath = os.path.normpath("/".join([args.out,patient_dir,"Segs"]))
 
-        if not os.path.exists(ScanOutpath):
-            os.makedirs(ScanOutpath)
+        # if not os.path.exists(ScanOutpath):
+        #     os.makedirs(ScanOutpath)
             
-        if not os.path.exists(SegOutpath):
-            os.makedirs(SegOutpath)
+        # if not os.path.exists(SegOutpath):
+        #     os.makedirs(SegOutpath)
 
         file_basename = os.path.basename(scan)
         file_name = file_basename.split(".")
@@ -91,10 +99,8 @@ def main(args):
             scan_name = patient + "_scan_Sp"+ spacing + ".nii.gz"
             seg_name = patient + "_seg_Sp"+ spacing + ".nii.gz"
 
-            SetSpacing(scan,[sp,sp,sp],os.path.join(ScanOutpath,scan_name))
-            SetSpacing(seg,[sp,sp,sp],os.path.join(SegOutpath,seg_name))
-
-
+            SetSpacing(scan,[sp,sp,0.32],outpath= os.path.join(Outpath,scan_name))
+            SetSpacing(seg,[sp,sp,0.32],"NearestNeighbor",os.path.join(Outpath,seg_name))
 
 
 if __name__ ==  '__main__':
@@ -106,7 +112,7 @@ if __name__ ==  '__main__':
     output_params = parser.add_argument_group('Output parameters')
     output_params.add_argument('-o','--out', type=str, help='Output directory', required=True)
 
-    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[2])
+    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.16])
 
     args = parser.parse_args()
     

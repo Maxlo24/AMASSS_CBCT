@@ -4,7 +4,7 @@ import numpy as np
 import SimpleITK as sitk
 
 
-input_img = sitk.ReadImage("/Users/luciacev-admin/Desktop/10_T0_Pred.or.nii.gz") 
+input_img = sitk.ReadImage("/Users/luciacev-admin/Desktop/MANDSEG_TEST/Lucia/UoM_Lucia_Skin_Pred.nii.gz") 
 
 labels_in = sitk.GetArrayFromImage(input_img)
 
@@ -30,31 +30,31 @@ output.SetDirection(input_img.GetDirection())
 output.SetOrigin(input_img.GetOrigin())
 
 writer = sitk.ImageFileWriter()
-writer.SetFileName("cleaned.nii.gz")
+writer.SetFileName("/Users/luciacev-admin/Desktop/MANDSEG_TEST/Lucia/UoM_Lucia_Skin_Pred.nii.gz")
 writer.Execute(output)
 
-closing_radius = 8
-output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
-output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
+# closing_radius = 8
+# output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
+# output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
 
-writer = sitk.ImageFileWriter()
-writer.SetFileName("closed.nii.gz")
-writer.Execute(output)
+# writer = sitk.ImageFileWriter()
+# writer.SetFileName("closed.nii.gz")
+# writer.Execute(output)
 
-closed = sitk.GetArrayFromImage(output)
+# closed = sitk.GetArrayFromImage(output)
 
-stats = cc3d.statistics(labels_out)
-# print(stats)
-# print("mid = ", np.mean(stats['centroids'], axis = 0))
-mand_bbox = stats['bounding_boxes'][1]
-# print(mand_bbox)
-rng_lst = []
-mid_lst = []
-for slices in mand_bbox:
-  rng = slices.stop-slices.start
-  mid = (2/3)*rng+slices.start
-  rng_lst.append(rng)
-  mid_lst.append(mid)
+# stats = cc3d.statistics(labels_out)
+# # print(stats)
+# # print("mid = ", np.mean(stats['centroids'], axis = 0))
+# mand_bbox = stats['bounding_boxes'][1]
+# # print(mand_bbox)
+# rng_lst = []
+# mid_lst = []
+# for slices in mand_bbox:
+#   rng = slices.stop-slices.start
+#   mid = (2/3)*rng+slices.start
+#   rng_lst.append(rng)
+#   mid_lst.append(mid)
 
 # print(rng_lst,mid_lst)
 
@@ -66,19 +66,19 @@ for slices in mand_bbox:
 # print(labels_out[:,:,:150])
 # print(np.shape(closed[:,:,150:]))
 # print(closed[:,:,150:])
-merge_slice = int(mid_lst[0])
-print(merge_slice)
-out = np.concatenate((labels_out[:merge_slice,:,:],closed[merge_slice:,:,:]),axis=0)
+# merge_slice = int(mid_lst[0])
+# print(merge_slice)
+# out = np.concatenate((labels_out[:merge_slice,:,:],closed[merge_slice:,:,:]),axis=0)
 
 
-output = sitk.GetImageFromArray(out)
-output.SetSpacing(input_img.GetSpacing())
-output.SetDirection(input_img.GetDirection())
-output.SetOrigin(input_img.GetOrigin())
+# output = sitk.GetImageFromArray(out)
+# output.SetSpacing(input_img.GetSpacing())
+# output.SetDirection(input_img.GetDirection())
+# output.SetOrigin(input_img.GetOrigin())
 
-writer = sitk.ImageFileWriter()
-writer.SetFileName("merged.nii.gz")
-writer.Execute(output)
+# writer = sitk.ImageFileWriter()
+# writer.SetFileName("/Users/luciacev-admin/Desktop/MANDSEG_TEST/PRED_HP/MARILIA-30_Pred_Sp05.nii.gz")
+# writer.Execute(output)
 
 
 """

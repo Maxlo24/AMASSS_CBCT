@@ -333,6 +333,8 @@ def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-300
     output.SetSpacing(input_img.GetSpacing())
     output.SetDirection(input_img.GetDirection())
     output.SetOrigin(input_img.GetOrigin())
+    # output = sitk.Cast(output, sitk.sitkFloat32)
+
 
     writer = sitk.ImageFileWriter()
     writer.SetFileName(outpath)
@@ -432,7 +434,7 @@ def ResampleImage(input,size,spacing,origin,direction,interpolator,IVectorImageT
         resampled_img = resampleImageFilter.GetOutput()
         return resampled_img
 
-def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],interpolator="NearestNeighbor",outpath=-1):
+def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],interpolator="Linear",outpath=-1):
     """
     Set the spacing of the image at the wanted scale 
 
@@ -530,31 +532,31 @@ def CleanScan(file_path):
     input_img = sitk.ReadImage(file_path) 
     labels_in = sitk.GetArrayFromImage(input_img)
 
-    labels_out, N = cc3d.largest_k(
+    out, N = cc3d.largest_k(
         labels_in, k=1, 
         connectivity=26, delta=0,
         return_N=True,
     )
 
-    closing_radius = 8
-    output = sitk.GetImageFromArray(labels_out)
-    output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
-    output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
+    # closing_radius = 8
+    # output = sitk.GetImageFromArray(out)
+    # output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
+    # output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
 
-    closed = sitk.GetArrayFromImage(output)
+    # closed = sitk.GetArrayFromImage(output)
 
-    stats = cc3d.statistics(labels_out)
-    mand_bbox = stats['bounding_boxes'][1]
-    rng_lst = []
-    mid_lst = []
-    for slices in mand_bbox:
-        rng = slices.stop-slices.start
-        mid = (2/3)*rng+slices.start
-        rng_lst.append(rng)
-        mid_lst.append(mid)
+    # stats = cc3d.statistics(out)
+    # mand_bbox = stats['bounding_boxes'][1]
+    # rng_lst = []
+    # mid_lst = []
+    # for slices in mand_bbox:
+    #     rng = slices.stop-slices.start
+    #     mid = (2/3)*rng+slices.start
+    #     rng_lst.append(rng)
+    #     mid_lst.append(mid)
 
-    merge_slice = int(mid_lst[0])
-    out = np.concatenate((labels_out[:merge_slice,:,:],closed[merge_slice:,:,:]),axis=0)
+    # merge_slice = int(mid_lst[0])
+    # out = np.concatenate((out[:merge_slice,:,:],closed[merge_slice:,:,:]),axis=0)
 
     output = sitk.GetImageFromArray(out)
     output.SetSpacing(input_img.GetSpacing())
@@ -584,17 +586,7 @@ def SetSpacingFromRef(filepath,refFile,interpolator = "NearestNeighbor",outpath=
      path to save the new image
     """
 
-    # img = itk.imread(filepath)
-    # Dimension = 3
-    # InputPixelType = itk.D
-
-    # InputImageType = itk.Image[InputPixelType, Dimension]
-
-    # reader = itk.ImageFileReader[InputImageType].New()
-    # reader.SetFileName(filepath)
     img = itk.imread(filepath)
-
-    
     ref = itk.imread(refFile)
 
     img_sp = np.array(img.GetSpacing()) 
@@ -602,6 +594,21 @@ def SetSpacingFromRef(filepath,refFile,interpolator = "NearestNeighbor",outpath=
 
     ref_sp = np.array(ref.GetSpacing())
     ref_size = np.array(itk.size(ref))
+    ref_origin = ref.GetOrigin()
+    ref_direction = ref.GetDirection()
+
+    Dimension = 3
+    InputPixelType = itk.D
+
+    InputImageType = itk.Image[InputPixelType, Dimension]
+
+    reader = itk.ImageFileReader[InputImageType].New()
+    reader.SetFileName(filepath)
+    img = reader.GetOutput()
+
+    # reader2 = itk.ImageFileReader[InputImageType].New()
+    # reader2.SetFileName(refFile)
+    # ref = reader2.GetOutput()
 
     if not (np.array_equal(img_sp,ref_sp) and np.array_equal(img_size,ref_size)):
         img_info = itk.template(img)[1]
@@ -616,14 +623,14 @@ def SetSpacingFromRef(filepath,refFile,interpolator = "NearestNeighbor",outpath=
         IVectorImageType = itk.Image[Ipixel_type, Ipixel_dimension]
 
         if interpolator == "NearestNeighbor":
-            InterpolatorType = itk.NearestNeighborInterpolateImageFunction[IVectorImageType, itk.D]
+            InterpolatorType = itk.NearestNeighborInterpolateImageFunction[InputImageType, itk.D]
             # print("Rescale Seg with spacing :", output_spacing)
         elif interpolator == "Linear":
-            InterpolatorType = itk.LinearInterpolateImageFunction[IVectorImageType, itk.D]
+            InterpolatorType = itk.LinearInterpolateImageFunction[InputImageType, itk.D]
             # print("Rescale Scan with spacing :", output_spacing)
 
         interpolator = InterpolatorType.New()
-        resampled_img = ResampleImage(img,ref_size.tolist(),ref_sp,ref.GetOrigin(),ref.GetDirection(),interpolator,IVectorImageType,OVectorImageType)
+        resampled_img = ResampleImage(img,ref_size.tolist(),ref_sp,ref_origin,ref_direction,interpolator,InputImageType,InputImageType)
 
         output = ItkToSitk(resampled_img)
         output = sitk.Cast(output, sitk.sitkInt16)
