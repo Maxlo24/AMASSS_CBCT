@@ -296,10 +296,14 @@ def GetTrainValDataset(dir,val_percentage):
 
     # print(folder_dic)
     train_data,valid_data = [],[]
+    num_patient = 0 
     for folder,patients in folder_dic.items():
         tr,val = train_test_split(patients,test_size=val_percentage,shuffle=True)
         train_data += tr
         valid_data += val
+        num_patient += len(patients)
+
+    print("Total patient:", num_patient)
 
     return train_data,valid_data
 
@@ -308,11 +312,14 @@ def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-300
 
     print("Correcting scan contrast :", filepath)
     input_img = sitk.ReadImage(filepath) 
+    input_img = sitk.Cast(input_img, sitk.sitkFloat32)
     img = sitk.GetArrayFromImage(input_img)
+
 
     img_min = np.min(img)
     img_max = np.max(img)
     img_range = img_max - img_min
+    # print(img_min,img_max,img_range)
 
     definition = 1000
     histo = np.histogram(img,definition)
@@ -326,6 +333,8 @@ def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-300
     res_low = list(map(lambda i: i> min_porcent, cum)).index(True)
     res_min = (res_low * img_range)/definition + img_min
 
+    # print(res_min,res_min)
+
     img = np.where(img > res_max, res_max,img)
     img = np.where(img < res_min, res_min,img)
 
@@ -333,7 +342,7 @@ def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-300
     output.SetSpacing(input_img.GetSpacing())
     output.SetDirection(input_img.GetDirection())
     output.SetOrigin(input_img.GetOrigin())
-    # output = sitk.Cast(output, sitk.sitkFloat32)
+    output = sitk.Cast(output, sitk.sitkInt32)
 
 
     writer = sitk.ImageFileWriter()

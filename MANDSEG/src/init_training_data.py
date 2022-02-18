@@ -99,8 +99,8 @@ def main(args):
             scan_name = patient + "_scan_Sp"+ spacing + ".nii.gz"
             seg_name = patient + "_seg_Sp"+ spacing + ".nii.gz"
 
-            SetSpacing(scan,[sp,sp,0.32],outpath= os.path.join(Outpath,scan_name))
-            SetSpacing(seg,[sp,sp,0.32],"NearestNeighbor",os.path.join(Outpath,seg_name))
+            SetSpacing(scan,[sp,sp,sp],outpath= os.path.join(Outpath,scan_name))
+            SetSpacing(seg,[sp,sp,sp],"NearestNeighbor",os.path.join(Outpath,seg_name))
 
 
 if __name__ ==  '__main__':
@@ -112,7 +112,7 @@ if __name__ ==  '__main__':
     output_params = parser.add_argument_group('Output parameters')
     output_params.add_argument('-o','--out', type=str, help='Output directory', required=True)
 
-    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.16])
+    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5])
 
     args = parser.parse_args()
     

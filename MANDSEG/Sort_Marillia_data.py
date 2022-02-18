@@ -35,6 +35,8 @@ def main(args):
                 
                 if True in [txt in basename for txt in ["scan","Scan"]]:
                     patients[patient]["scan"] = img_fn
+                elif True in [txt in basename for txt in ["-MD","SEGMD","SEGmd","segMD","segmd"]]:
+                    patients[patient]["seg"] = img_fn
                 # elif True in [txt in basename for txt in ["MX"]]:
                 #     patients[patient]["MX"] = img_fn
                 # elif True in [txt in basename for txt in ["MX"]]:
@@ -140,7 +142,7 @@ def main(args):
             seg_name = patient_dir + "-" + str(N) + "_seg_Sp"+ spacing + ".nii.gz"
 
             SetSpacing(scan,[sp,sp,sp],outpath=os.path.join(Outpath,scan_name))
-            SetSpacing(seg,[sp,sp,sp],"Linear",os.path.join(Outpath,seg_name))
+            SetSpacing(seg,[sp,sp,sp],"NearestNeighbor",os.path.join(Outpath,seg_name))
 
         N += 1
 

@@ -4,7 +4,7 @@ import numpy as np
 import SimpleITK as sitk
 
 
-input_img = sitk.ReadImage("/Users/luciacev-admin/Desktop/MANDSEG_TEST/Lucia/UoM_Lucia_Skin_Pred.nii.gz") 
+input_img = sitk.ReadImage("/Users/luciacev-admin/Desktop/MANDSEG_TEST/PRED_HP/10_T0_VC_Pred.or.nii.gz") 
 
 labels_in = sitk.GetArrayFromImage(input_img)
 
@@ -30,7 +30,7 @@ output.SetDirection(input_img.GetDirection())
 output.SetOrigin(input_img.GetOrigin())
 
 writer = sitk.ImageFileWriter()
-writer.SetFileName("/Users/luciacev-admin/Desktop/MANDSEG_TEST/Lucia/UoM_Lucia_Skin_Pred.nii.gz")
+writer.SetFileName("/Users/luciacev-admin/Desktop/MANDSEG_TEST/PRED_HP/10_T0_VC_Pred.or.nii.gz")
 writer.Execute(output)
 
 # closing_radius = 8
