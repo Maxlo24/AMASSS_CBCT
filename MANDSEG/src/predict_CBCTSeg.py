@@ -37,10 +37,10 @@ def main(args):
         basename = os.path.basename(img_fn)
 
         if True in [ext in basename for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
-            if "_Pred" not in basename:
-                new_path = os.path.join(temp_fold,basename)
+            if not True in [txt in basename for txt in ["_Pred","seg","Seg"]]:
+                # new_path = os.path.join(temp_fold,basename)
                 # CorrectHisto(img_fn, new_path,0.01, 0.99)
-                data_list.append({"scan":new_path, "name":img_fn, "temp_path":new_path})
+                data_list.append({"scan":img_fn, "name":img_fn, "temp_path":img_fn})
 
 
 
@@ -119,12 +119,17 @@ def main(args):
             
             # SavePrediction(pred_data.permute(0,3,2,1),input_path,temp_path)
             # CleanScan(temp_path)
-            SetSpacingFromRef(
-                temp_path,
-                input_path,
-                # "Linear",
-                outpath=file_path
-                )
+            # SetSpacingFromRef(
+            #     temp_path,
+            #     input_path,
+            #     # "Linear",
+            #     outpath=file_path
+            #     )
+
+            # vtk_path = file_path.split(".")[0] + ".vtp"
+            # SavePredToVTK(file_path,vtk_path)
+
+            
 
     try:
         shutil.rmtree(temp_fold)
@@ -152,7 +157,7 @@ if __name__ == "__main__":
     input_group.add_argument('-p', '--precision', type=float, help='precision of the prediction', default=0.2)
 
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=2)
-    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=1)
+    input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=2)
 
     args = parser.parse_args()
     

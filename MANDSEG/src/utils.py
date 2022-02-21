@@ -1,6 +1,8 @@
 import numpy as np  
 import SimpleITK as sitk
 import itk
+
+
 import os
 import matplotlib.pyplot as plt
 from scipy import stats
@@ -350,7 +352,7 @@ def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-300
     writer.Execute(output)
     return output
 
-def CloseCBCTSeg(filepath,outpath, closing_radius = 5):
+def CloseCBCTSeg(filepath,outpath, closing_radius = 1):
     """
     Close the holes in the CBCT
 
@@ -374,8 +376,9 @@ def CloseCBCTSeg(filepath,outpath, closing_radius = 5):
     output.SetDirection(input_img.GetDirection())
     output.SetOrigin(input_img.GetOrigin())
 
-    # output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
-    # output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
+    output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
+    output = sitk.BinaryFillhole(output)
+    output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
 
     writer = sitk.ImageFileWriter()
     writer.SetFileName(outpath)
@@ -547,25 +550,26 @@ def CleanScan(file_path):
         return_N=True,
     )
 
-    # closing_radius = 8
-    # output = sitk.GetImageFromArray(out)
-    # output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
-    # output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
+    closing_radius = 1
+    output = sitk.GetImageFromArray(out)
+    output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
+    output = sitk.BinaryFillhole(output)
+    output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
 
-    # closed = sitk.GetArrayFromImage(output)
+    closed = sitk.GetArrayFromImage(output)
 
-    # stats = cc3d.statistics(out)
-    # mand_bbox = stats['bounding_boxes'][1]
-    # rng_lst = []
-    # mid_lst = []
-    # for slices in mand_bbox:
-    #     rng = slices.stop-slices.start
-    #     mid = (2/3)*rng+slices.start
-    #     rng_lst.append(rng)
-    #     mid_lst.append(mid)
+    stats = cc3d.statistics(out)
+    mand_bbox = stats['bounding_boxes'][1]
+    rng_lst = []
+    mid_lst = []
+    for slices in mand_bbox:
+        rng = slices.stop-slices.start
+        mid = (2/3)*rng+slices.start
+        rng_lst.append(rng)
+        mid_lst.append(mid)
 
-    # merge_slice = int(mid_lst[0])
-    # out = np.concatenate((out[:merge_slice,:,:],closed[merge_slice:,:,:]),axis=0)
+    merge_slice = int(mid_lst[0])
+    out = np.concatenate((out[:merge_slice,:,:],closed[merge_slice:,:,:]),axis=0)
 
     output = sitk.GetImageFromArray(out)
     output.SetSpacing(input_img.GetSpacing())
@@ -645,7 +649,7 @@ def SetSpacingFromRef(filepath,refFile,interpolator = "NearestNeighbor",outpath=
         output = sitk.Cast(output, sitk.sitkInt16)
 
         if img_sp[0] > ref_sp[0]:
-            closing_radius = 4
+            closing_radius = 2
             output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
             output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
 
@@ -664,6 +668,7 @@ def SetSpacingFromRef(filepath,refFile,interpolator = "NearestNeighbor",outpath=
             writer.SetFileName(outpath)
             writer.Execute(output)
         return output
+
 
 
 def ConvertSimpleItkImageToItkImage(_sitk_image: sitk.Image, _pixel_id_value):

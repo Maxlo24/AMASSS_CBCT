@@ -57,7 +57,7 @@ if __name__ ==  '__main__':
     output_params = parser.add_argument_group('Output parameters')
     output_params.add_argument('-o','--out', type=str, help='Output directory', required=True)
 
-    input_group.add_argument('-rad', '--radius', type=int, help='Radius of the closing', default=5)
+    input_group.add_argument('-rad', '--radius', type=int, help='Radius of the closing', default=1)
     
     args = parser.parse_args()
     

@@ -295,7 +295,7 @@ if __name__ ==  '__main__':
     input_group = parser.add_argument_group('dir')
     input_group.add_argument('--dir_project', type=str, help='Directory with all the project',default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark')
     input_group.add_argument('--dir_data', type=str, help='Input directory with 3D images', default=parser.parse_args().dir_project+'/data')
-    input_group.add_argument('--dir_patients', type=str, help='Input directory with 3D images', default=parser.parse_args().dir_data+'/Patients')
+    input_group.add_argument('--dir_patients', type=str, help='Input directory with 3D images',default=parser.parse_args().dir_data+'/Patients') #default = "/Users/luciacev-admin/Desktop/Mandible_Dataset")# 
     input_group.add_argument('--dir_model', type=str, help='Output directory of the training',default=parser.parse_args().dir_data+'/Models')
 
     input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="MandSeg_model")

@@ -2,21 +2,51 @@ from matplotlib.pyplot import axis
 import cc3d
 import numpy as np
 import SimpleITK as sitk
+import itk
 
 
-input_img = sitk.ReadImage("/Users/luciacev-admin/Desktop/MANDSEG_TEST/PRED_HP/10_T0_VC_Pred.or.nii.gz") 
+# img = itk.imread("/Users/luciacev-admin/Desktop/Scans_RS/UoP/Segs/UoP-362_seg_Sp05.nii.gz")
 
-labels_in = sitk.GetArrayFromImage(input_img)
+# img_info = itk.template(img)[1]
+# pixel_type = img_info[0]
+# pixel_dimension = img_info[1]
+# ImageType = itk.Image[pixel_type, pixel_dimension]
+
+
+# ImageType = itk.Image[itk.US, 3]
+# BinaryFillholeImageFilter = itk.BinaryFillholeImageFilter[ImageType].New()
+# BinaryFillholeImageFilter.SetInput(img)
+# BinaryFillholeImageFilter.SetForegroundValue(1)
+# BinaryFillholeImageFilter.Update()
+# filled_itk_img = BinaryFillholeImageFilter.GetOutput()
+
+# itk.imwrite(filled_itk_img,"test.nii.gz")
+
+output = sitk.ReadImage("/Users/luciacev-admin/Desktop/Scans_RS/UoP/Segs/UoP-362_seg_Sp05.nii.gz")
+closing_radius = 1
+output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
+output = sitk.BinaryFillhole(output)
+output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
+
+writer = sitk.ImageFileWriter()
+writer.SetFileName("test.nii.gz")
+writer.Execute(output)
+
+
+
+# input_img = sitk.ReadImage("/Users/luciacev-admin/Desktop/MANDSEG_TEST/PRED_HP/10_T0_VC_Pred.or.nii.gz") 
+
+# labels_in = sitk.GetArrayFromImage(input_img)
+# labels_out, N = cc3d.largest_k(
+#   labels_in, k=1, 
+#   connectivity=26, delta=0,
+#   return_N=True,
+# )
 
 # labels_out = cc3d.connected_components(labels_in)
 # stats = cc3d.statistics(labels_out)
 # print(stats["voxel_counts"])
 
-labels_out, N = cc3d.largest_k(
-  labels_in, k=1, 
-  connectivity=26, delta=0,
-  return_N=True,
-)
 
 # labels_out = cc3d.dust(
 #   labels_in, threshold=10, 
@@ -24,14 +54,14 @@ labels_out, N = cc3d.largest_k(
 # )
 # labels_out = cc3d.dust(labels_in)
 
-output = sitk.GetImageFromArray(labels_out)
-output.SetSpacing(input_img.GetSpacing())
-output.SetDirection(input_img.GetDirection())
-output.SetOrigin(input_img.GetOrigin())
+# output = sitk.GetImageFromArray(labels_out)
+# output.SetSpacing(input_img.GetSpacing())
+# output.SetDirection(input_img.GetDirection())
+# output.SetOrigin(input_img.GetOrigin())
 
-writer = sitk.ImageFileWriter()
-writer.SetFileName("/Users/luciacev-admin/Desktop/MANDSEG_TEST/PRED_HP/10_T0_VC_Pred.or.nii.gz")
-writer.Execute(output)
+# writer = sitk.ImageFileWriter()
+# writer.SetFileName("/Users/luciacev-admin/Desktop/MANDSEG_TEST/PRED_HP/10_T0_VC_Pred.or.nii.gz")
+# writer.Execute(output)
 
 # closing_radius = 8
 # output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
@@ -66,6 +96,7 @@ writer.Execute(output)
 # print(labels_out[:,:,:150])
 # print(np.shape(closed[:,:,150:]))
 # print(closed[:,:,150:])
+
 # merge_slice = int(mid_lst[0])
 # print(merge_slice)
 # out = np.concatenate((labels_out[:merge_slice,:,:],closed[merge_slice:,:,:]),axis=0)
