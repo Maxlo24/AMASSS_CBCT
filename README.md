@@ -4,6 +4,10 @@ Authors: Deleat-Besson Romain (UoM), Le Celia (UoM)
 
 Scripts for Multi organ segmentation in CBCT
 
+Full face model made by combining the mandible, the maxilla, the cranial base, the cervical vertebra and the skin segmentation using a MONAI UNETR :
+
+![Segmentation](https://user-images.githubusercontent.com/46842010/155178127-61dfbf6b-9e4f-450b-966e-a2afca3fc4e4.png)
+
 ## Prerequisites
 
 python 3.7.9 with the librairies:
@@ -15,14 +19,6 @@ python 3.7.9 with the librairies:
 > Pillow==7.2.0 \
 > numpy==1.19.5 \
 > itk==5.2.0 
-
-
-
-## What is it?
-
-Full face model made by combining the mandible, the maxilla, the cranial base, the cervical vertebra and the skin segmentation using a MONAI UNETR :
-
-![Segmentation](https://user-images.githubusercontent.com/46842010/155178127-61dfbf6b-9e4f-450b-966e-a2afca3fc4e4.png)
 
 ## Running the code
 
