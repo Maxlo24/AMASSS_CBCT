@@ -7,6 +7,7 @@ import SimpleITK as sitk
 import os
 import glob
 import math
+import tqdm 
 
 # from numba import jit, prange
 # @jit(nopython=True, nogil=True, cache=True, parallel=True, fastmath=True)
@@ -101,8 +102,11 @@ avg_acc = []
 metrics_names = ['AUPRC','AUPRC - Baseline','F1_Score','Fbeta_Score','Accuracy','Recall','Precision','File']
 total_values = pd.DataFrame(columns=metrics_names)
 
+
 startTime = time.time()
-for patient, data in patients.items():
+
+
+for patient, data in tqdm.tqdm(patients.items()):
 
     GT = sitk.ReadImage(data["seg"]) 
     GT = sitk.GetArrayFromImage(GT).flatten()

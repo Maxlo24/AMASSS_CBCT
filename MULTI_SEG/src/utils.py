@@ -669,7 +669,28 @@ def SetSpacingFromRef(filepath,refFile,interpolator = "NearestNeighbor",outpath=
             writer.Execute(output)
         return output
 
+def KeepLabel(filepath,outpath,labelToKeep):
 
+    # print("Reading:", filepath)
+    input_img = sitk.ReadImage(filepath) 
+    img = sitk.GetArrayFromImage(input_img)
+
+    for i in range(np.max(img)):
+        label = i+1
+        if label != labelToKeep:
+            img = np.where(img == label, 0,img)
+
+    img = np.where(img > 0, 1,img)
+
+    output = sitk.GetImageFromArray(img)
+    output.SetSpacing(input_img.GetSpacing())
+    output.SetDirection(input_img.GetDirection())
+    output.SetOrigin(input_img.GetOrigin())
+
+    writer = sitk.ImageFileWriter()
+    writer.SetFileName(outpath)
+    writer.Execute(output)
+    return output
 
 def ConvertSimpleItkImageToItkImage(_sitk_image: sitk.Image, _pixel_id_value):
     """

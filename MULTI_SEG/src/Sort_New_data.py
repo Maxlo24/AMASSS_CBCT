@@ -3,7 +3,7 @@ import glob
 import sys
 import os
 import shutil
-from src.utils import SetSpacing
+from utils import SetSpacing,KeepLabel
 
 def main(args):
 
@@ -19,24 +19,37 @@ def main(args):
 
         if True in [ext in img_fn for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
             file_name = basename.split(".")[0]
-            elements_1 = file_name.split("1")
-            elements_2 = file_name.split("2")
+            patient = file_name.split("_")[0]
 
-            if len(elements_1)>1 or len(elements_2) >1:
-                if len(elements_1)>1:
-                    # print(elements_1[0])
-                    patient = elements_1[0] + "-1"
-                elif len(elements_2)>1:
-                    # print(elements_2[0])
-                    patient = elements_2[0] + "-2"
+            if patient not in patients.keys():
+                patients[patient] = {}
+
+            if True in [txt in basename for txt in ["scan","Scan"]]:
+                patients[patient]["scan"] = img_fn
+
+            elif True in [txt in basename for txt in ["seg","Seg"]]:
+                patients[patient]["seg"] = img_fn
+
+            # ========== MARILIA ========
+
+            # elements_1 = file_name.split("1")
+            # elements_2 = file_name.split("2")
+
+            # if len(elements_1)>1 or len(elements_2) >1:
+            #     if len(elements_1)>1:
+            #         # print(elements_1[0])
+            #         patient = elements_1[0] + "-1"
+            #     elif len(elements_2)>1:
+            #         # print(elements_2[0])
+            #         patient = elements_2[0] + "-2"
                 
-                if patient not in patients.keys():
-                    patients[patient] = {}
+            #     if patient not in patients.keys():
+            #         patients[patient] = {}
                 
-                if True in [txt in basename for txt in ["scan","Scan"]]:
-                    patients[patient]["scan"] = img_fn
-                elif True in [txt in basename for txt in ["-MD","SEGMD","SEGmd","segMD","segmd"]]:
-                    patients[patient]["seg"] = img_fn
+            #     if True in [txt in basename for txt in ["scan","Scan"]]:
+            #         patients[patient]["scan"] = img_fn
+            #     elif True in [txt in basename for txt in ["-MD","SEGMD","SEGmd","segMD","segmd"]]:
+            #         patients[patient]["seg"] = img_fn
                 # elif True in [txt in basename for txt in ["MX"]]:
                 #     patients[patient]["MX"] = img_fn
                 # elif True in [txt in basename for txt in ["MX"]]:
@@ -50,9 +63,12 @@ def main(args):
                 # elif True in [txt in basename for txt in ["SEGBC","seg-BC","segBC"]]: #and not True in [txt in basename for txt in ["aproxBC","regBC","BC5","scan","Scan"]]:
                 #     patients[patient]["seg"] = img_fn
 
+            # =====================
+
+
             # print(elements_dash)
 
-            patient = ""
+            # patient = ""
             # if len(elements_) != 0:
             #     if len(elements_) > 2:
             #         patient = elements_[0] + "_" + elements_[1]
@@ -117,7 +133,7 @@ def main(args):
     for ip in invalid_patient:
         del patients[ip]
 
-    patient_dir = "MARILIA"
+    patient_dir = "UFG_add"
     N = 0
     Outpath = os.path.normpath("/".join([args.out,patient_dir]))
 
@@ -131,18 +147,18 @@ def main(args):
         # print(seg)
 
         
-
-            
         # file_basename = os.path.basename(scan)
         # file_name = file_basename.split(".")
 
         for sp in args.spacing:
             spacing = str(sp).replace(".","")
-            scan_name = patient_dir + "-" + str(N) + "_scan_Sp"+ spacing + ".nii.gz"
-            seg_name = patient_dir + "-" + str(N) + "_seg_Sp"+ spacing + ".nii.gz"
+            scan_name = patient_dir + "-" + patient + "_scan_Sp"+ spacing + ".nii.gz"
+            seg_name = patient_dir + "-" + patient + "_seg_Sp"+ spacing + ".nii.gz"
 
+            save_path = os.path.join(Outpath,seg_name)
             SetSpacing(scan,[sp,sp,sp],outpath=os.path.join(Outpath,scan_name))
-            SetSpacing(seg,[sp,sp,sp],"NearestNeighbor",os.path.join(Outpath,seg_name))
+            SetSpacing(seg,[sp,sp,sp],"NearestNeighbor",save_path)
+            KeepLabel(save_path,save_path,1)
 
         N += 1
 
@@ -162,3 +178,4 @@ if __name__ ==  '__main__':
     args = parser.parse_args()
     
     main(args)
+

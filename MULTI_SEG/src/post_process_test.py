@@ -3,6 +3,10 @@ import cc3d
 import numpy as np
 import SimpleITK as sitk
 import itk
+from utils import *
+
+# SetSpacingFromRef("/Users/luciacev-admin/Desktop/MANDSEG_TEST/MAXIME/MG_scan.nii.gz","/Users/luciacev-admin/Desktop/MANDSEG_TEST/MAXIME/MG_Pred.nii.gz",interpolator="Linear",outpath= "/Users/luciacev-admin/Desktop/MANDSEG_TEST/MAXIME/MG_scan.nii.gz")
+
 
 
 # img = itk.imread("/Users/luciacev-admin/Desktop/Scans_RS/UoP/Segs/UoP-362_seg_Sp05.nii.gz")
@@ -22,14 +26,14 @@ import itk
 
 # itk.imwrite(filled_itk_img,"test.nii.gz")
 
-output = sitk.ReadImage("/Users/luciacev-admin/Desktop/Scans_RS/UoP/Segs/UoP-362_seg_Sp05.nii.gz")
+output = sitk.ReadImage("/Users/luciacev-admin/Desktop/Maxime segmentations 2/AH1-seg-TM.gipl.gz")
 closing_radius = 1
 output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
 output = sitk.BinaryFillhole(output)
 output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
 
 writer = sitk.ImageFileWriter()
-writer.SetFileName("test.nii.gz")
+writer.SetFileName("SKIN_FILL.nii.gz")
 writer.Execute(output)
 
 
