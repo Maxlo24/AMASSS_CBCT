@@ -15,6 +15,7 @@ import datetime
 import glob
 import sys
 import cc3d
+import shutil
 
 
 # ----- MONAI ------
@@ -244,6 +245,115 @@ def CorrectImgContrast(img,min_porcent,max_porcent):
    ##    ##     ## ##     ## ##             ## 
    ##    ##     ## ##     ## ##       ##    ## 
    ##     #######   #######  ########  ######  
+
+
+def GenWorkSpace(dir,test_percentage,out_dir):
+
+    data_dic = {}
+    normpath = os.path.normpath("/".join([dir, '**', '']))
+    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
+        #  print(img_fn)
+        basename = os.path.basename(img_fn)
+
+        if True in [ext in basename for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
+            file_name = basename.split(".")[0]
+            elements_dash = file_name.split("-")
+            file_folder = elements_dash[0]
+            info = elements_dash[1].split("_scan_Sp")[0].split("_seg_Sp")
+            patient = info[0]
+
+            # print(patient)
+
+            if file_folder not in data_dic.keys():
+                data_dic[file_folder] = {}
+
+            if patient not in data_dic[file_folder].keys():
+                data_dic[file_folder][patient] = {}
+
+            if "_scan" in basename:
+                data_dic[file_folder][patient]["scan"] = img_fn
+
+            elif "_seg" in basename:
+                data_dic[file_folder][patient]["seg"] = img_fn
+            else:
+                print("----> Unrecognise CBCT file found at :", img_fn)
+
+    # print(data_dic)
+    error = False
+    folder_dic = {}
+    for folder,patients in data_dic.items():
+        if folder not in folder_dic.keys():
+            folder_dic[folder] = []
+        for patient,data in patients.items():
+            if "scan" not in data.keys():
+                print("Missing scan for patient :",patient,"at",data["dir"])
+                error = True
+            if "seg" not in data.keys():
+                print("Missing segmentation patient :",patient,"at",data["dir"])
+                error = True
+            folder_dic[folder].append(data)
+
+    if error:
+        print("ERROR : folder have missing/unrecognise files", file=sys.stderr)
+        raise
+
+
+    # print(folder_dic)
+    train_data,valid_data = [],[]
+    num_patient = 0
+    nbr_cv_fold = int(1/test_percentage)
+    # print(nbr_cv_fold)
+    # nbr_cv_fold = 1
+    i = 0
+    for i in range(nbr_cv_fold):
+
+        cv_dir_out =  os.path.join(out_dir,"CV_fold_" + str(i))
+        if not os.path.exists(cv_dir_out):
+            os.makedirs(cv_dir_out)
+
+        data_fold =  os.path.join(cv_dir_out,"data")
+        if not os.path.exists(data_fold):
+            os.makedirs(data_fold)
+        
+        patients_fold =  os.path.join(data_fold,"Patients")
+        if not os.path.exists(patients_fold):
+            os.makedirs(patients_fold)
+    
+        test_fold =  os.path.join(data_fold,"test")
+        if not os.path.exists(test_fold):
+            os.makedirs(test_fold)
+
+        for folder,patients in folder_dic.items():
+
+            len_lst = len(patients)
+            len_test = int(len_lst/nbr_cv_fold)
+            start = i*len_test
+            end = (i+1)*len_test
+            if end > len_lst: end = len_lst
+            training_patients = patients[:start] + patients[end:]
+            test_patients = patients[start:end]
+
+            train_cv_dir_out =  os.path.join(patients_fold,folder)
+            if not os.path.exists(train_cv_dir_out):
+                os.makedirs(train_cv_dir_out)
+
+            for patient in training_patients:
+                shutil.copyfile(patient["scan"], os.path.join(train_cv_dir_out,os.path.basename(patient["scan"])))
+                shutil.copyfile(patient["seg"], os.path.join(train_cv_dir_out,os.path.basename(patient["seg"])))
+
+            test_cv_dir_out =  os.path.join(test_fold,folder)
+            if not os.path.exists(test_cv_dir_out):
+                os.makedirs(test_cv_dir_out)
+
+            for patient in test_patients:
+                shutil.copyfile(patient["scan"], os.path.join(test_cv_dir_out,os.path.basename(patient["scan"])))
+                shutil.copyfile(patient["seg"], os.path.join(test_cv_dir_out,os.path.basename(patient["seg"])))
+
+
+        # print(training_patients)
+        # print(test_patients)
+
+
 
 def GetTrainValDataset(dir,val_percentage):
     data_dic = {}

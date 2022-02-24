@@ -133,7 +133,7 @@ def main(args):
     for ip in invalid_patient:
         del patients[ip]
 
-    patient_dir = "UFG_add"
+    patient_dir = "UFG"
     N = 0
     Outpath = os.path.normpath("/".join([args.out,patient_dir]))
 
@@ -158,7 +158,7 @@ def main(args):
             save_path = os.path.join(Outpath,seg_name)
             SetSpacing(scan,[sp,sp,sp],outpath=os.path.join(Outpath,scan_name))
             SetSpacing(seg,[sp,sp,sp],"NearestNeighbor",save_path)
-            KeepLabel(save_path,save_path,1)
+            KeepLabel(save_path,save_path,4)
 
         N += 1
 
