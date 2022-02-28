@@ -1,4 +1,4 @@
-# Multi-Anatomical Skull Structure Segmentation of Cone-Beam Computed Tomography scans Using 3D UNETR
+# Automatic Multi-Anatomical Skull Structure Segmentation of Cone-Beam Computed Tomography scans Using 3D UNETR
 
 Authors: Deleat-Besson Romain (UoM), Le Celia (UoM)
 
@@ -6,7 +6,8 @@ Scripts for Multi organ segmentation in CBCT
 
 Full face model made by combining the mandible, the maxilla, the cranial base, the cervical vertebra and the skin segmentation using a MONAI UNETR :
 
-![Segmentation](https://user-images.githubusercontent.com/46842010/155178127-61dfbf6b-9e4f-450b-966e-a2afca3fc4e4.png)
+![Segmentation](https://user-images.githubusercontent.com/46842010/155926868-ca81d82b-8735-4f33-97af-0c3d616e6910.png)
+
 
 ## Prerequisites
 
@@ -43,3 +44,14 @@ python3 correct_file.py -i "path of the input folder with the scans and the segs
 
 Expected results of the contrast adjustment :
 ![ContrastAdjust](https://user-images.githubusercontent.com/46842010/155178176-7e735867-4ad2-412d-9ac0-c47fe9d7cd8e.png)
+
+
+Prediction steps
+
+![prediction](https://user-images.githubusercontent.com/46842010/155927157-19206e54-7a90-4816-8eb7-72369a04c39e.png)
+
+Results 
+
+![RESULTS](https://user-images.githubusercontent.com/46842010/155927668-906b4fae-4249-4556-a4fa-7a622e9c6c81.png)
+
+
