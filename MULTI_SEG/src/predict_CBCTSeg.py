@@ -24,7 +24,6 @@ import argparse
 def main(args):
 
     label_nbr = args.nbr_label
-    nbr_workers = args.nbr_worker
     spacing = args.spacing
     cropSize = args.crop_size
 
@@ -54,8 +53,9 @@ def main(args):
         if True in [ext in basename for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
             if not True in [txt in basename for txt in ["_Pred","seg","Seg"]]:
                 new_path = os.path.join(temp_fold,basename)
+                temp_pred_path = os.path.join(temp_fold,"temp_Pred.nii.gz")
                 CorrectHisto(img_fn, new_path,0.01, 0.99)
-                data_list.append({"scan":img_fn, "name":img_fn, "temp_path":new_path})
+                data_list.append({"scan":new_path, "name":img_fn, "temp_path":temp_pred_path})
 
 
 
