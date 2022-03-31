@@ -454,7 +454,7 @@ def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-300
     output.SetSpacing(input_img.GetSpacing())
     output.SetDirection(input_img.GetDirection())
     output.SetOrigin(input_img.GetOrigin())
-    output = sitk.Cast(output, sitk.sitkInt32)
+    output = sitk.Cast(output, sitk.sitkInt16)
 
 
     writer = sitk.ImageFileWriter()
@@ -666,22 +666,22 @@ def CleanScan(file_path):
     output = sitk.BinaryFillhole(output)
     output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
 
-    closed = sitk.GetArrayFromImage(output)
+    # closed = sitk.GetArrayFromImage(output)
 
-    stats = cc3d.statistics(out)
-    mand_bbox = stats['bounding_boxes'][1]
-    rng_lst = []
-    mid_lst = []
-    for slices in mand_bbox:
-        rng = slices.stop-slices.start
-        mid = (2/3)*rng+slices.start
-        rng_lst.append(rng)
-        mid_lst.append(mid)
+    # stats = cc3d.statistics(out)
+    # mand_bbox = stats['bounding_boxes'][1]
+    # rng_lst = []
+    # mid_lst = []
+    # for slices in mand_bbox:
+    #     rng = slices.stop-slices.start
+    #     mid = (2/3)*rng+slices.start
+    #     rng_lst.append(rng)
+    #     mid_lst.append(mid)
 
-    merge_slice = int(mid_lst[0])
-    out = np.concatenate((out[:merge_slice,:,:],closed[merge_slice:,:,:]),axis=0)
+    # merge_slice = int(mid_lst[0])
+    # out = np.concatenate((out[:merge_slice,:,:],closed[merge_slice:,:,:]),axis=0)
+    # output = sitk.GetImageFromArray(out)
 
-    output = sitk.GetImageFromArray(out)
     output.SetSpacing(input_img.GetSpacing())
     output.SetDirection(input_img.GetDirection())
     output.SetOrigin(input_img.GetOrigin())

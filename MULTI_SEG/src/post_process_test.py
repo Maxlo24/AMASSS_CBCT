@@ -1,3 +1,5 @@
+import getpass
+import string
 from matplotlib.pyplot import axis
 import cc3d
 import numpy as np
@@ -5,7 +7,46 @@ import SimpleITK as sitk
 import itk
 from utils import *
 
-# SetSpacingFromRef("/Users/luciacev-admin/Desktop/MANDSEG_TEST/MAXIME/MG_scan.nii.gz","/Users/luciacev-admin/Desktop/MANDSEG_TEST/MAXIME/MG_Pred.nii.gz",interpolator="Linear",outpath= "/Users/luciacev-admin/Desktop/MANDSEG_TEST/MAXIME/MG_scan.nii.gz")
+#Get image from url
+def get_image_from_url(url):
+    import urllib.request
+    import io
+    resp = urllib.request.urlopen(url)
+    image = np.asarray(bytearray(resp.read()), dtype="uint8")
+    image = np.reshape(image, (256, 256))
+    return image
+
+
+
+#plot image
+def plot_image(image):
+    plt.imshow(image,cmap='gray')
+    plt.show()
+
+plot_image(get_image_from_url('https://www.google.com/search?q=chat&rlz=1C5GCEM_enUS964US964&sxsrf=APq-WBsq5hGK6kOKg2_s2qx7Er00jJ8_jg:1648668396144&source=lnms&tbm=isch&sa=X&ved=2ahUKEwjQr-qwyO72AhXEXM0KHYY4DfIQ_AUoAXoECAEQAw&biw=1680&bih=882&dpr=2#imgrc=YVqXM2zc5FB_5M'))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -26,29 +67,49 @@ from utils import *
 
 # itk.imwrite(filled_itk_img,"test.nii.gz")
 
-output = sitk.ReadImage("/Users/luciacev-admin/Desktop/Maxime segmentations 2/AH1-seg-TM.gipl.gz")
+# output = sitk.ReadImage("/Users/luciacev-admin/Desktop/Maxime segmentations 2/AH1-seg-TM.gipl.gz")
+# closing_radius = 1
+# output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
+# output = sitk.BinaryFillhole(output)
+# output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
+
+# writer = sitk.ImageFileWriter()
+# writer.SetFileName("SKIN_FILL.nii.gz")
+# writer.Execute(output)
+
+
+
+input_img = sitk.ReadImage("/Users/luciacev-admin/Desktop/test/RC-P1_scan_Sp05.nii.gz") 
+input_seg = sitk.ReadImage("/Users/luciacev-admin/Desktop/test/RC-P1_seg_Sp05.nii.gz") 
+
+
 closing_radius = 1
-output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
+
+output = sitk.BinaryDilate(input_seg, [closing_radius] * input_seg.GetDimension())
 output = sitk.BinaryFillhole(output)
-output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
-
-writer = sitk.ImageFileWriter()
-writer.SetFileName("SKIN_FILL.nii.gz")
-writer.Execute(output)
-
-
-
-# input_img = sitk.ReadImage("/Users/luciacev-admin/Desktop/MANDSEG_TEST/PRED_HP/10_T0_VC_Pred.or.nii.gz") 
-
-# labels_in = sitk.GetArrayFromImage(input_img)
-# labels_out, N = cc3d.largest_k(
+output = sitk.GetArrayFromImage(output)
+output = np.transpose(output, (2, 0, 1))
+# output, N = cc3d.largest_k(
 #   labels_in, k=1, 
 #   connectivity=26, delta=0,
 #   return_N=True,
 # )
+output = cc3d.connected_components(output)
+output = np.transpose(output, (1, 2, 0))
 
-# labels_out = cc3d.connected_components(labels_in)
-# stats = cc3d.statistics(labels_out)
+# closing_radius = 3
+
+# output = sitk.GetImageFromArray(output)
+# output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
+# output = sitk.BinaryFillhole(output)
+# output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
+
+stats = cc3d.statistics(output)
+tooth = stats['bounding_boxes'][1]
+# print(tooth)
+
+output = output[tooth[0].start:tooth[0].stop,tooth[1].start:tooth[1].stop,tooth[2].start:tooth[2].stop ]
+
 # print(stats["voxel_counts"])
 
 
@@ -58,14 +119,16 @@ writer.Execute(output)
 # )
 # labels_out = cc3d.dust(labels_in)
 
-# output = sitk.GetImageFromArray(labels_out)
-# output.SetSpacing(input_img.GetSpacing())
-# output.SetDirection(input_img.GetDirection())
-# output.SetOrigin(input_img.GetOrigin())
 
-# writer = sitk.ImageFileWriter()
-# writer.SetFileName("/Users/luciacev-admin/Desktop/MANDSEG_TEST/PRED_HP/10_T0_VC_Pred.or.nii.gz")
-# writer.Execute(output)
+
+output = sitk.GetImageFromArray(output)
+output.SetSpacing(input_img.GetSpacing())
+output.SetDirection(input_img.GetDirection())
+output.SetOrigin(input_img.GetOrigin())
+
+writer = sitk.ImageFileWriter()
+writer.SetFileName("test.nii.gz")
+writer.Execute(output)
 
 # closing_radius = 8
 # output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
