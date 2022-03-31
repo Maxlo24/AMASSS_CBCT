@@ -27,7 +27,7 @@ def main(args):
     spacing = args.spacing
     cropSize = args.crop_size
 
-    temp_fold = os.path.join(args.temp_fold), "temp" + id_generator()
+    temp_fold = os.path.join(args.temp_fold, "temp_" + id_generator())
     if not os.path.exists(temp_fold):
         os.makedirs(temp_fold)
 
