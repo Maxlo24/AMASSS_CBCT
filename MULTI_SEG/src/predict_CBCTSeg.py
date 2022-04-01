@@ -126,8 +126,8 @@ def main(args):
                 input_dir = os.path.dirname(input_path)
                 file_path = os.path.join(input_dir,pred_name)
 
-                input_img_no_batch = input_img.squeeze(0)
-                input_img = input_img_no_batch
+                # input_img_no_batch = input_img.squeeze(0)
+                # input_img = input_img_no_batch
 
                 # input_img = input_img_no_batch.permute(0,3,2,1)
                 # print(input_img.shape)

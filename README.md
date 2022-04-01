@@ -1,25 +1,27 @@
 # Automatic Multi-Anatomical Skull Structure Segmentation of Cone-Beam Computed Tomography scans Using 3D UNETR
 
-Authors: Deleat-Besson Romain (UoM), Le Celia (UoM)
+Authors:
+Maxime Gillot (University of Michigan), Baptiste Baquero (UoM), Celia Le (UoM), Romain Deleat-Besson (UoM), Lucia Cevidanes (UoM), Jonas Bianchi (UoM), Marcela Gurgel (UoM), Marilia Yatabe (UoM), Najla Al Turkestani (UoM), Kayvan Najarian (UoM), Reza Soroushmehr (UoM), Steve Pieper (ISOMICS), Ron Kikinis (Harvard Medical School), Beatriz Paniagua ( Kitware ), Jonathan Gryak (UoM), Marcos Ioshida (UoM), Camila Massaro (UoM), Liliane Gomes (UoM), Heesoo Oh (University of Pacific), Karine Evangelista (UoM), Cauby Chaves Jr (University of Ceara), Daniela Garib (University of São Paulo), Fábio Costa (University of Ceara), Erika Benavides (UoM), Fabiana Soki (UoM), Jean-Christophe Fillion-Robin (Kitware), Hina Joshi (University of North Narolina), Juan Prieto (Dept. of Psychiatry UNC at Chapel Hill)
+
 
 Scripts for Multi organ segmentation in CBCT
 
-Full face model made by combining the mandible, the maxilla, the cranial base, the cervical vertebra and the skin segmentation using a MONAI UNETR :
+Full face model made by combining the mandible, the maxilla, the cranial base, the cervical vertebra and the skin segmentation using the MONAI UNETR :
 
 ![Segmentation](https://user-images.githubusercontent.com/46842010/155926868-ca81d82b-8735-4f33-97af-0c3d616e6910.png)
 
 
 ## Prerequisites
 
-python 3.7.9 with the librairies:
+python 3.8.8 with the librairies:
 
 **Main librairies:**
 
-> tensorflow==2.4.1 \
-> tensorflow-gpu==2.4.0 \
-> Pillow==7.2.0 \
-> numpy==1.19.5 \
-> itk==5.2.0 
+> monai==0.7.0 \
+> torch==1.10.1 \
+> itk==5.2.1 \
+> numpy==1.20.1 \
+> simpleitk==2.1.1
 
 ## Running the code
 
@@ -40,10 +42,16 @@ To run the preprocess to correct the image contrast and fill the holes in the se
 ```
 python3 correct_file.py -i "path of the input folder with the scans and the segs" -o "path of the output folder"
 ```
-
-
 Expected results of the contrast adjustment :
 ![ContrastAdjust](https://user-images.githubusercontent.com/46842010/155178176-7e735867-4ad2-412d-9ac0-c47fe9d7cd8e.png)
+
+## Use Docker
+You can get the AMASSS docker image by running the folowing command line:
+
+```
+docker pull dcbia/
+```
+
 
 
 Prediction steps
