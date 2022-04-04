@@ -10,7 +10,6 @@ import string
 def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
 
-
 from monai.data import (
     DataLoader,
     Dataset,
@@ -41,7 +40,6 @@ def main(args):
             model_id = basename.split("_")[1]
             model_dict[model_id] = img_fn
 
-
     # load data
     print("Loading data from", args.dir)
     data_list = []
@@ -57,14 +55,11 @@ def main(args):
                 CorrectHisto(img_fn, new_path,0.01, 0.99)
                 data_list.append({"scan":new_path, "name":img_fn, "temp_path":temp_pred_path})
 
-
-
     net = Create_UNETR(
         input_channel = 1,
         label_nbr=label_nbr,
         cropSize=cropSize
     ).to(DEVICE)
-
 
     # net.eval()
     # net.double()
@@ -73,7 +68,6 @@ def main(args):
     # pre_transforms = createTestTransform(wanted_spacing= args.spacing,outdir=args.out)
 
     pred_transform = CreatePredTransform()
-
 
     pred_ds = Dataset(
         data=data_list, 
@@ -87,9 +81,7 @@ def main(args):
         pin_memory=True
     )
 
-
     startTime = time.time()
-
     # pred_iterator = tqdm(
     #     pred_loader, desc="Pred", dynamic_ncols=True
     # )
@@ -148,8 +140,6 @@ def main(args):
                 # vtk_path = file_path.split(".")[0] + ".vtp"
                 # SavePredToVTK(file_path,vtk_path)
 
-            
-
     try:
         shutil.rmtree(temp_fold)
     except OSError as e:
@@ -159,27 +149,25 @@ def main(args):
 
 
 
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Predict Landmarks', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     
     input_group = parser.add_argument_group('directory')
-    input_group.add_argument('--dir', type=str, help='Input directory with the scans', default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/data/test')
-    input_group.add_argument('--dir_models', type=str, help='Folder with the models', default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/temp')
+    # input_group.add_argument('--dir', type=str, help='Input directory with the scans', default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/data/test')
+    # input_group.add_argument('--dir_models', type=str, help='Folder with the models', default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/temp')
+    input_group.add_argument('--dir', type=str, help='Input directory with the scans', default='/app/data/scans')
+    input_group.add_argument('--dir_models', type=str, help='Folder with the models', default='/app/data/ALL_MODELS')
     # input_group.add_argument('--load_model', type=str, help='Path of the model', default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/data/best_model_MAND.pth')
     # input_group.add_argument('--out', type=str, help='Output directory with the landmarks',default=None)
     input_group.add_argument('--temp_fold', type=str, help='temporary folder', default='..')
     
-
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5,0.5,0.5])
     input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[128,128,128])
-    input_group.add_argument('-p', '--precision', type=float, help='precision of the prediction', default=0.2)
+    input_group.add_argument('-p', '--precision', type=float, help='precision of the prediction', default=0.33)
 
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=2)
-    input_group.add_argument('-ncw', '--nbr_CPU_worker', type=int, help='Number of worker', default=0)
-    input_group.add_argument('-ngw', '--nbr_GPU_worker', type=int, help='Number of worker', default=2)
+    input_group.add_argument('-ncw', '--nbr_CPU_worker', type=int, help='Number of worker', default=5)
+    input_group.add_argument('-ngw', '--nbr_GPU_worker', type=int, help='Number of worker', default=5)
 
     args = parser.parse_args()
-    
     main(args)
