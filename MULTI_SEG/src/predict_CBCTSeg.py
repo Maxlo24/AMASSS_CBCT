@@ -100,8 +100,8 @@ def main(args):
             pred_names = []
             merge_dic_list = []
             for image in input_path:
-                print("Working on :",input_path)
-                baseName = os.path.basename(input_path)
+                print("Working on :",image)
+                baseName = os.path.basename(image)
                 scan_name= baseName.split(".")
                 # print(baseName)
                 pred_id = "_XXXX-Seg_Pred"
@@ -150,8 +150,8 @@ def main(args):
                     SavePrediction(seg,input_path[seg_id],temp_path[seg_id])
                     CleanScan(temp_path[seg_id])
                     SetSpacingFromRef(
-                        temp_path,
-                        input_path,
+                        temp_path[seg_id],
+                        input_path[seg_id],
                         # "Linear",
                         outpath=file_path
                         )
