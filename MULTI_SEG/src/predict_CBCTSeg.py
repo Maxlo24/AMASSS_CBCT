@@ -75,7 +75,7 @@ def main(args):
     )
     pred_loader = DataLoader(
         dataset=pred_ds,
-        batch_size=1, 
+        batch_size=args.batch_size, 
         shuffle=False, 
         num_workers=args.nbr_CPU_worker, 
         pin_memory=True
@@ -92,29 +92,34 @@ def main(args):
             temp_dic[id] = model_dict[id]
         model_dict = temp_dic
 
-    seg_path_dic = {}
 
     with torch.no_grad():
         for step, batch in enumerate(pred_loader):
-            input_img, input_path,temp_path = (batch["scan"].to(DEVICE), batch["name"][0],batch["temp_path"][0])
-            print("Working on :",input_path)
-            baseName = os.path.basename(input_path)
-            scan_name= baseName.split(".")
-            # print(baseName)
-            pred_id = "_XXXX-Seg_Pred"
+            input_img, input_path,temp_path = (batch["scan"].to(DEVICE), batch["name"],batch["temp_path"])
 
-            if "_scan" in baseName:
-                pred_name = baseName.replace("_scan",pred_id)
-            elif "_Scan" in baseName:
-                pred_name = baseName.replace("_Scan",pred_id)
-            else:
-                pred_name = ""
-                for i,element in enumerate(scan_name):
-                    if i == 0:
-                        pred_name += element + pred_id
-                    else:
-                        pred_name += "." + element
+            pred_names = []
+            merge_dic_list = []
+            for image in input_path:
+                print("Working on :",input_path)
+                baseName = os.path.basename(input_path)
+                scan_name= baseName.split(".")
+                # print(baseName)
+                pred_id = "_XXXX-Seg_Pred"
 
+                if "_scan" in baseName:
+                    pred_name = baseName.replace("_scan",pred_id)
+                elif "_Scan" in baseName:
+                    pred_name = baseName.replace("_Scan",pred_id)
+                else:
+                    pred_name = ""
+                    for i,element in enumerate(scan_name):
+                        if i == 0:
+                            pred_name += element + pred_id
+                        else:
+                            pred_name += "." + element
+
+                pred_names.append(pred_name)
+                merge_dic_list.append({})
 
 
             for model_id,model_path in model_dict.items():
@@ -126,8 +131,6 @@ def main(args):
 
                 pred_data = torch.argmax(val_outputs, dim=1).detach().cpu().type(torch.int16)
 
-                input_dir = os.path.dirname(input_path)
-                file_path = os.path.join(input_dir,pred_name.replace('XXXX',model_id))
 
                 # input_img_no_batch = input_img.squeeze(0)
                 # input_img = input_img_no_batch
@@ -138,24 +141,29 @@ def main(args):
                 # SavePrediction(input_img,input_path,file_path)
 
                 # SetSpacing(input_path,[0.5,0.5,0.5],file_path)
-                
-                SavePrediction(pred_data.permute(0,3,2,1),input_path,temp_path)
-                CleanScan(temp_path)
-                SetSpacingFromRef(
-                    temp_path,
-                    input_path,
-                    # "Linear",
-                    outpath=file_path
-                    )
-                seg_path_dic[model_id] = file_path
+
+                segmentations = pred_data.permute(0,3,2,1)
+
+                for seg_id,seg in enumerate(segmentations):
+                    input_dir = os.path.dirname(input_path[seg_id])
+                    file_path = os.path.join(input_dir,pred_names[seg_id].replace('XXXX',model_id))
+                    SavePrediction(seg,input_path[seg_id],temp_path[seg_id])
+                    CleanScan(temp_path[seg_id])
+                    SetSpacingFromRef(
+                        temp_path,
+                        input_path,
+                        # "Linear",
+                        outpath=file_path
+                        )
+                    merge_dic_list[seg_id][model_id] = file_path
 
                 # vtk_path = file_path.split(".")[0] + ".vtp"
                 # SavePredToVTK(file_path,vtk_path)
-    if args.merge:
-        print("Merging")
-        outpath = os.path.join(input_dir,pred_name.replace('XXXX','FullFace'))
+            if args.merge:
+                print("Merging")
+                outpath = os.path.join(input_dir,pred_names[seg_id].replace('XXXX','FullFace'))
 
-        MergeSeg(seg_path_dic,outpath,args.merging_order)
+                MergeSeg(merge_dic_list[seg_id],outpath,args.merging_order)
 
     try:
         shutil.rmtree(temp_fold)
@@ -189,6 +197,8 @@ if __name__ == "__main__":
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=2)
     input_group.add_argument('-ncw', '--nbr_CPU_worker', type=int, help='Number of worker', default=5)
     input_group.add_argument('-ngw', '--nbr_GPU_worker', type=int, help='Number of worker', default=5)
+    input_group.add_argument('-bs', '--batch_size', type=int, help='Number of scan to do simultanously', default=1)
+
 
     args = parser.parse_args()
     main(args)

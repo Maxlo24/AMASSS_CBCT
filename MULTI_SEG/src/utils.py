@@ -661,7 +661,7 @@ def SavePrediction(data,ref_filepath, outpath):
 
     ref_img = sitk.ReadImage(ref_filepath) 
 
-    img = data.numpy()[0][:]
+    img = data.numpy()[:]
 
     output_spacing = [0.5,0.5,0.5]
 
