@@ -85,10 +85,38 @@ def main(args):
     # pred_iterator = tqdm(
     #     pred_loader, desc="Pred", dynamic_ncols=True
     # )
+
+    if args.skul_structure[0] != "ALL":
+        temp_dic = {}
+        for id in args.skul_structure:
+            temp_dic[id] = model_dict[id]
+        model_dict = temp_dic
+
+    seg_path_dic = {}
+
     with torch.no_grad():
         for step, batch in enumerate(pred_loader):
             input_img, input_path,temp_path = (batch["scan"].to(DEVICE), batch["name"][0],batch["temp_path"][0])
             print("Working on :",input_path)
+            baseName = os.path.basename(input_path)
+            scan_name= baseName.split(".")
+            # print(baseName)
+            pred_id = "_XXXX-Seg_Pred"
+
+            if "_scan" in baseName:
+                pred_name = baseName.replace("_scan",pred_id)
+            elif "_Scan" in baseName:
+                pred_name = baseName.replace("_Scan",pred_id)
+            else:
+                pred_name = ""
+                for i,element in enumerate(scan_name):
+                    if i == 0:
+                        pred_name += element + pred_id
+                    else:
+                        pred_name += "." + element
+
+
+
             for model_id,model_path in model_dict.items():
                 print("Loading model", model_path)
                 net.load_state_dict(torch.load(model_path,map_location=DEVICE))
@@ -98,25 +126,8 @@ def main(args):
 
                 pred_data = torch.argmax(val_outputs, dim=1).detach().cpu().type(torch.int16)
 
-                baseName = os.path.basename(input_path)
-                scan_name= baseName.split(".")
-                # print(baseName)
-                pred_id = "_" + model_id + "_Pred"
-
-                if "_scan" in baseName:
-                    pred_name = baseName.replace("_scan",pred_id)
-                elif "_Scan" in baseName:
-                    pred_name = baseName.replace("_Scan",pred_id)
-                else:
-                    pred_name = ""
-                    for i,element in enumerate(scan_name):
-                        if i == 0:
-                            pred_name += element + pred_id
-                        else:
-                            pred_name += "." + element
-
                 input_dir = os.path.dirname(input_path)
-                file_path = os.path.join(input_dir,pred_name)
+                file_path = os.path.join(input_dir,pred_name.replace('XXXX',model_id))
 
                 # input_img_no_batch = input_img.squeeze(0)
                 # input_img = input_img_no_batch
@@ -136,9 +147,15 @@ def main(args):
                     # "Linear",
                     outpath=file_path
                     )
+                seg_path_dic[model_id] = file_path
 
                 # vtk_path = file_path.split(".")[0] + ".vtp"
                 # SavePredToVTK(file_path,vtk_path)
+    if args.merge:
+        print("Merging")
+        outpath = os.path.join(input_dir,pred_name.replace('XXXX','FullFace'))
+
+        MergeSeg(seg_path_dic,outpath,args.merging_order)
 
     try:
         shutil.rmtree(temp_fold)
@@ -161,9 +178,13 @@ if __name__ == "__main__":
     # input_group.add_argument('--out', type=str, help='Output directory with the landmarks',default=None)
     input_group.add_argument('--temp_fold', type=str, help='temporary folder', default='..')
     
+    input_group.add_argument('-ss', '--skul_structure', nargs="+", type=str, help='Skul structure to segment', default=["ALL"])
+    input_group.add_argument('-m', '--merge', type=bool, help='merge the segmentations', default=True)
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5,0.5,0.5])
     input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[128,128,128])
-    input_group.add_argument('-p', '--precision', type=float, help='precision of the prediction', default=0.33)
+    input_group.add_argument('-pr', '--precision', type=float, help='precision of the prediction', default=0.33)
+
+    input_group.add_argument('-mo','--merging_order',nargs="+", type=str, help='order of the merging', default=["SKIN","CV","CB","MAX","MAND"])
 
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=2)
     input_group.add_argument('-ncw', '--nbr_CPU_worker', type=int, help='Number of worker', default=5)

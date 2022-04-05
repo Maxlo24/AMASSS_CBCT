@@ -238,14 +238,6 @@ def CorrectImgContrast(img,min_porcent,max_porcent):
    ##    ##    ##  ##     ##  ##  ##   ###  ##  ##   ### ##    ##  
    ##    ##     ## ##     ## #### ##    ## #### ##    ##  ######   
 
-########  #######   #######  ##        ######  
-   ##    ##     ## ##     ## ##       ##    ## 
-   ##    ##     ## ##     ## ##       ##       
-   ##    ##     ## ##     ## ##        ######  
-   ##    ##     ## ##     ## ##             ## 
-   ##    ##     ## ##     ## ##       ##    ## 
-   ##     #######   #######  ########  ######  
-
 
 def GenWorkSpace(dir,test_percentage,out_dir):
 
@@ -418,6 +410,40 @@ def GetTrainValDataset(dir,val_percentage):
     print("Total patient:", num_patient)
 
     return train_data,valid_data
+
+
+########  #######   #######  ##        ######  
+   ##    ##     ## ##     ## ##       ##    ## 
+   ##    ##     ## ##     ## ##       ##       
+   ##    ##     ## ##     ## ##        ######  
+   ##    ##     ## ##     ## ##             ## 
+   ##    ##     ## ##     ## ##       ##    ## 
+   ##     #######   #######  ########  ######  
+
+def MergeSeg(seg_path_dic,out_path,seg_order):
+    merge_lst = []
+    for id in seg_order:
+        if id in seg_path_dic.keys():
+            merge_lst.append(seg_path_dic[id])
+
+    first_img = sitk.ReadImage(merge_lst[0])
+    main_seg = sitk.GetArrayFromImage(first_img)
+    for i in range(len(merge_lst)-1):
+        label = i+2
+        img = sitk.ReadImage(merge_lst[i+1])
+        seg = sitk.GetArrayFromImage(img)
+        main_seg = np.where(seg==1,label,main_seg)
+
+    output = sitk.GetImageFromArray(main_seg)
+    output.SetSpacing(first_img.GetSpacing())
+    output.SetDirection(first_img.GetDirection())
+    output.SetOrigin(first_img.GetOrigin())
+    output = sitk.Cast(output, sitk.sitkInt16)
+
+    writer = sitk.ImageFileWriter()
+    writer.SetFileName(out_path)
+    writer.Execute(output)
+    return output
 
 
 def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-3000):
