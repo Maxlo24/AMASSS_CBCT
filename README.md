@@ -25,6 +25,28 @@ python 3.8.8 with the librairies:
 
 ## Running the code
 
+## Using Docker
+You can get the AMASSS docker image by running the folowing command lines.
+
+**Building using the DockerFile**
+
+From the DockerFile directory:
+
+```
+docker build -t amasss .
+```
+
+**Automatic segmentation**
+
+```
+docker run --rm --shm-size=5gb -v <Folder_with_the_scans_to_segment>:/app/data/scans amasss:latest python3 /app/MULTI_SEG/src/predict_CBCTSeg.py -ss MAND MAX CB CV
+```
+A test scan "MG_scan_test.nii.gz" is provided in the Data folder of the AMASSS repositorie.
+
+___
+
+## On your computer
+
 **Pre-process**
 
 To run the preprocess to organise the files and set them at the wanted spacing:
@@ -45,13 +67,8 @@ python3 correct_file.py -i "path of the input folder with the scans and the segs
 Expected results of the contrast adjustment :
 ![ContrastAdjust](https://user-images.githubusercontent.com/46842010/155178176-7e735867-4ad2-412d-9ac0-c47fe9d7cd8e.png)
 
-## Use Docker
-You can get the AMASSS docker image by running the folowing command line:
 
-```
-docker pull dcbia/
-```
-
+___
 
 
 Prediction steps

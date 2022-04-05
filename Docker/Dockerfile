@@ -19,7 +19,7 @@ RUN unzip ALL_MODELS.zip
 RUN rm -rf ALL_MODELS.zip
 
 
-ARG RELEASE_VERSION="1.0.0-beta.3"
+ARG RELEASE_VERSION="1.0.0-beta.5"
 WORKDIR /app
 RUN wget https://github.com/Maxlo24/AMASSS_CBCT/archive/refs/tags/v$RELEASE_VERSION.zip
 RUN unzip v$RELEASE_VERSION.zip
