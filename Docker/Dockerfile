@@ -1,5 +1,5 @@
 FROM pytorch/pytorch:1.11.0-cuda11.3-cudnn8-runtime
-ARG RELEASE_VERSION="1.0.0-beta"
+ARG RELEASE_VERSION="1.0.0-beta.1"
 ARG MODEL_VERSION="1.0.0-alpha"
 
 RUN apt-get update && \
