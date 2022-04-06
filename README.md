@@ -1,5 +1,5 @@
 # Automatic Multi-Anatomical Skull Structure Segmentation of Cone-Beam Computed Tomography scans Using 3D UNETR
-#####AMASSS-CBCT
+*AMASSS-CBCT*
 
 Authors:
 <font size="1"> Maxime Gillot (University of Michigan), Baptiste Baquero (UoM), Celia Le (UoM), Romain Deleat-Besson (UoM), Lucia Cevidanes (UoM), Jonas Bianchi (UoM), Marcela Gurgel (UoM), Marilia Yatabe (UoM), Najla Al Turkestani (UoM), Kayvan Najarian (UoM), Reza Soroushmehr (UoM), Steve Pieper (ISOMICS), Ron Kikinis (Harvard Medical School), Beatriz Paniagua ( Kitware ), Jonathan Gryak (UoM), Marcos Ioshida (UoM), Camila Massaro (UoM), Liliane Gomes (UoM), Heesoo Oh (University of Pacific), Karine Evangelista (UoM), Cauby Chaves Jr (University of Ceara), Daniela Garib (University of São Paulo), Fábio Costa (University of Ceara), Erika Benavides (UoM), Fabiana Soki (UoM), Jean-Christophe Fillion-Robin (Kitware), Hina Joshi (University of North Narolina), Juan Prieto (Dept. of Psychiatry UNC at Chapel Hill) </font> 
