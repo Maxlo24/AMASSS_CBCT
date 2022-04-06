@@ -2,6 +2,7 @@ FROM pytorch/pytorch:1.11.0-cuda11.3-cudnn8-runtime
 
 RUN apt-get update && \
 	apt-get install -y git \
+	# apt-get install -y nvidia-container-toolkit \
 	# libx11-6 \
 	# libgl1 \
 	# libopengl0 \
