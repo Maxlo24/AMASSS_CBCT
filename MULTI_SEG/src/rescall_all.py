@@ -43,7 +43,7 @@ def main(args):
                 # print(out_file)
                 if not os.path.exists(out_folder):
                     os.makedirs(out_folder)
-                SetSpacing(img_fn,[spacing,spacing,spacing],out_file)
+                SetSpacing(img_fn,[spacing,spacing,spacing],outpath=out_file)
 
 
                     
@@ -58,7 +58,7 @@ if __name__ ==  '__main__':
     output_params = parser.add_argument_group('Output parameters')
     output_params.add_argument('-o','--out_dir', type=str, help='Output directory', required=True)
 
-    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[2])
+    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5])
 
     args = parser.parse_args()
     

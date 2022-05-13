@@ -67,7 +67,7 @@ def main(args):
     # define pre transforms
     # pre_transforms = createTestTransform(wanted_spacing= args.spacing,outdir=args.out)
 
-    pred_transform = CreatePredTransform()
+    pred_transform = CreatePredTransform(spacing)
 
     pred_ds = Dataset(
         data=data_list, 
@@ -147,7 +147,7 @@ def main(args):
                 for seg_id,seg in enumerate(segmentations):
                     input_dir = os.path.dirname(input_path[seg_id])
                     file_path = os.path.join(input_dir,pred_names[seg_id].replace('XXXX',model_id))
-                    SavePrediction(seg,input_path[seg_id],temp_path[seg_id])
+                    SavePrediction(seg,input_path[seg_id],temp_path[seg_id],output_spacing = spacing)
                     CleanScan(temp_path[seg_id])
                     SetSpacingFromRef(
                         temp_path[seg_id],
@@ -161,7 +161,7 @@ def main(args):
                 # SavePredToVTK(file_path,vtk_path)
             if args.merge:
                 print("Merging")
-                outpath = os.path.join(input_dir,pred_names[seg_id].replace('XXXX','FullFace'))
+                outpath = os.path.join(input_dir,pred_names[seg_id].replace('XXXX','MERGED'))
 
                 MergeSeg(merge_dic_list[seg_id],outpath,args.merging_order)
 
@@ -186,13 +186,13 @@ if __name__ == "__main__":
     # input_group.add_argument('--out', type=str, help='Output directory with the landmarks',default=None)
     input_group.add_argument('--temp_fold', type=str, help='temporary folder', default='..')
     
-    input_group.add_argument('-ss', '--skul_structure', nargs="+", type=str, help='Skul structure to segment', default=["ALL"])
+    input_group.add_argument('-ss', '--skul_structure', nargs="+", type=str, help='Skul structure to segment', default=["UAW","CV","CB","MAX","MAND"])
     input_group.add_argument('-m', '--merge', type=bool, help='merge the segmentations', default=True)
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5,0.5,0.5])
     input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[128,128,128])
-    input_group.add_argument('-pr', '--precision', type=float, help='precision of the prediction', default=0.33)
+    input_group.add_argument('-pr', '--precision', type=float, help='precision of the prediction', default=0.5)
 
-    input_group.add_argument('-mo','--merging_order',nargs="+", type=str, help='order of the merging', default=["SKIN","CV","CB","MAX","MAND"])
+    input_group.add_argument('-mo','--merging_order',nargs="+", type=str, help='order of the merging', default=["SKIN","UAW","CV","CB","MAX","MAND","CAN","RCL","RCU"])
 
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=2)
     input_group.add_argument('-ncw', '--nbr_CPU_worker', type=int, help='Number of worker', default=5)

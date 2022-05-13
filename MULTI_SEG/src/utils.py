@@ -177,7 +177,7 @@ def CreateValidationTransform():
 
     return val_transforms
 
-def CreatePredTransform():
+def CreatePredTransform(spacing):
     pred_transforms = Compose(
         [
             LoadImaged(keys=["scan"]),
@@ -185,7 +185,7 @@ def CreatePredTransform():
             ScaleIntensityd(
                 keys=["scan"],minv = 0.0, maxv = 1.0, factor = None
             ),
-            Spacingd(keys=["scan"],pixdim=[0.5,0.5,0.5]),
+            Spacingd(keys=["scan"],pixdim=spacing),
             ToTensord(keys=["scan"]),
         ]
     )
@@ -653,7 +653,7 @@ def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],interpolator="Linear",out
         return img
 
 
-def SavePrediction(data,ref_filepath, outpath):
+def SavePrediction(data,ref_filepath, outpath, output_spacing):
 
     # print("Saving prediction to : ", outpath)
 
@@ -662,9 +662,6 @@ def SavePrediction(data,ref_filepath, outpath):
     ref_img = sitk.ReadImage(ref_filepath) 
 
     img = data.numpy()[:]
-
-    output_spacing = [0.5,0.5,0.5]
-
 
     output = sitk.GetImageFromArray(img)
     output.SetSpacing(output_spacing)
@@ -676,22 +673,23 @@ def SavePrediction(data,ref_filepath, outpath):
     writer.Execute(output)
 
 
+
 def CleanScan(file_path):
     input_img = sitk.ReadImage(file_path) 
-    labels_in = sitk.GetArrayFromImage(input_img)
 
+
+    closing_radius = 2
+    output = sitk.BinaryDilate(input_img, [closing_radius] * input_img.GetDimension())
+    output = sitk.BinaryFillhole(output)
+    output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
+
+    labels_in = sitk.GetArrayFromImage(input_img)
     out, N = cc3d.largest_k(
         labels_in, k=1, 
         connectivity=26, delta=0,
         return_N=True,
     )
-
-    closing_radius = 1
     output = sitk.GetImageFromArray(out)
-    output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
-    output = sitk.BinaryFillhole(output)
-    output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
-
     # closed = sitk.GetArrayFromImage(output)
 
     # stats = cc3d.statistics(out)
@@ -786,8 +784,10 @@ def SetSpacingFromRef(filepath,refFile,interpolator = "NearestNeighbor",outpath=
 
         if img_sp[0] > ref_sp[0]:
             closing_radius = 2
-            output = sitk.BinaryDilate(output, [closing_radius] * output.GetDimension())
-            output = sitk.BinaryErode(output, [closing_radius] * output.GetDimension())
+            MedianFilter = sitk.BinaryMedianImageFilter()
+            MedianFilter.SetRadius(closing_radius)
+            output = MedianFilter.Execute(output)
+
 
         if outpath != -1:
             writer = sitk.ImageFileWriter()
