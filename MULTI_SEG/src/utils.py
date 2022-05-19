@@ -445,8 +445,7 @@ def MergeSeg(seg_path_dic,out_path,seg_order):
     writer.Execute(output)
     return output
 
-
-def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-3000):
+def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-1500, i_max=4000):
 
     print("Correcting scan contrast :", filepath)
     input_img = sitk.ReadImage(filepath) 
@@ -470,6 +469,10 @@ def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-300
 
     res_low = list(map(lambda i: i> min_porcent, cum)).index(True)
     res_min = (res_low * img_range)/definition + img_min
+
+    res_min = max(res_min,i_min)
+    res_max = min(res_max,i_max)
+
 
     # print(res_min,res_min)
 

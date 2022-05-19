@@ -49,10 +49,10 @@ docker run --rm --shm-size=5gb --gpus all -v <Folder_with_the_scans_to_segment>:
 https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#docker
 
 **Segmentation options/arguments**
-- By default, the mandible (MAND), the maxilla (MAX), the cranial base (CB), the cervical vertebra (CV) and the skin (SKIN) structures  are segmented and a merged segmentation is generated.
+- By default, the mandible (MAND), the maxilla (MAX), the cranial base (CB), the cervical vertebra (CV) and the upper airway (UAW) structures  are segmented and a merged segmentation is generated.
     To choose which structure to segment, you can use the following arguments:
     ```
-    -ss MAND MAX CB CV SKIN
+    -ss MAND MAX CB CV UAW
     ```
     To deactivate the merging step, you can use the following argument:
     ```

@@ -36,7 +36,7 @@ def run(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="VTK to STL converter")
     parser.add_argument('indir', help="Path to input directory.")
-    parser.add_argument('--outdir', '-o', default='output', help="Path to output directory.")
+    parser.add_argument('--outdir', '-o', default= parser.parse_args().indir, help="Path to output directory.")
     parser.set_defaults(func=run)
     args = parser.parse_args()
     ret = args.func(args)

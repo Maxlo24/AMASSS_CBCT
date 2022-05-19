@@ -41,19 +41,31 @@ def main(args):
             model_dict[model_id] = img_fn
 
     # load data
-    print("Loading data from", args.dir)
     data_list = []
-    normpath = os.path.normpath("/".join([args.dir, '**', '']))
-    for img_fn in sorted(glob.iglob(normpath, recursive=True)):
-        #  print(img_fn)
-        basename = os.path.basename(img_fn)
 
-        if True in [ext in basename for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
-            if not True in [txt in basename for txt in ["_Pred","seg","Seg"]]:
-                new_path = os.path.join(temp_fold,basename)
-                temp_pred_path = os.path.join(temp_fold,"temp_Pred.nii.gz")
-                CorrectHisto(img_fn, new_path,0.01, 0.99)
-                data_list.append({"scan":new_path, "name":img_fn, "temp_path":temp_pred_path})
+    if args.file:
+        print("Loading scan :", args.file)
+        img_fn = args.file
+        basename = os.path.basename(img_fn)
+        new_path = os.path.join(temp_fold,basename)
+        temp_pred_path = os.path.join(temp_fold,"temp_Pred.nii.gz")
+        CorrectHisto(img_fn, new_path,0.01, 0.99)
+        data_list.append({"scan":new_path, "name":img_fn, "temp_path":temp_pred_path})
+
+    else:
+        scan_dir = args.dir
+        print("Loading data from",scan_dir )
+        normpath = os.path.normpath("/".join([scan_dir, '**', '']))
+        for img_fn in sorted(glob.iglob(normpath, recursive=True)):
+            #  print(img_fn)
+            basename = os.path.basename(img_fn)
+
+            if True in [ext in basename for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
+                if not True in [txt in basename for txt in ["_Pred","seg","Seg"]]:
+                    new_path = os.path.join(temp_fold,basename)
+                    temp_pred_path = os.path.join(temp_fold,"temp_Pred.nii.gz")
+                    CorrectHisto(img_fn, new_path,0.01, 0.99)
+                    data_list.append({"scan":new_path, "name":img_fn, "temp_path":temp_pred_path})
 
     net = Create_UNETR(
         input_channel = 1,
@@ -75,7 +87,7 @@ def main(args):
     )
     pred_loader = DataLoader(
         dataset=pred_ds,
-        batch_size=args.batch_size, 
+        batch_size=1, 
         shuffle=False, 
         num_workers=args.nbr_CPU_worker, 
         pin_memory=True
@@ -97,29 +109,38 @@ def main(args):
         for step, batch in enumerate(pred_loader):
             input_img, input_path,temp_path = (batch["scan"].to(DEVICE), batch["name"],batch["temp_path"])
 
-            pred_names = []
-            merge_dic_list = []
-            for image in input_path:
-                print("Working on :",image)
-                baseName = os.path.basename(image)
-                scan_name= baseName.split(".")
-                # print(baseName)
-                pred_id = "_XXXX-Seg_Pred"
 
-                if "_scan" in baseName:
-                    pred_name = baseName.replace("_scan",pred_id)
-                elif "_Scan" in baseName:
-                    pred_name = baseName.replace("_Scan",pred_id)
-                else:
-                    pred_name = ""
-                    for i,element in enumerate(scan_name):
-                        if i == 0:
-                            pred_name += element + pred_id
-                        else:
-                            pred_name += "." + element
+            image = input_path[0]
+            print("Working on :",image)
+            baseName = os.path.basename(image)
+            scan_name= baseName.split(".")
+            # print(baseName)
+            pred_id = "_XXXX-Seg_Pred"
 
-                pred_names.append(pred_name)
-                merge_dic_list.append({})
+            if "_scan" in baseName:
+                pred_name = baseName.replace("_scan",pred_id)
+            elif "_Scan" in baseName:
+                pred_name = baseName.replace("_Scan",pred_id)
+            else:
+                pred_name = ""
+                for i,element in enumerate(scan_name):
+                    if i == 0:
+                        pred_name += element + pred_id
+                    else:
+                        pred_name += "." + element
+
+            merge_dic_list={}
+
+
+            if args.save_in_folder:
+                outputdir = os.path.dirname(input_path[0]) + "/" + scan_name[0] + "_" + "SegOut"
+
+                print("Output dir :",outputdir)
+
+                if not os.path.exists(outputdir):
+                    os.makedirs(outputdir)
+            else :
+                outputdir = os.path.dirname(input_path[0])
 
 
             for model_id,model_path in model_dict.items():
@@ -144,26 +165,36 @@ def main(args):
 
                 segmentations = pred_data.permute(0,3,2,1)
 
-                for seg_id,seg in enumerate(segmentations):
-                    input_dir = os.path.dirname(input_path[seg_id])
-                    file_path = os.path.join(input_dir,pred_names[seg_id].replace('XXXX',model_id))
-                    SavePrediction(seg,input_path[seg_id],temp_path[seg_id],output_spacing = spacing)
-                    CleanScan(temp_path[seg_id])
-                    SetSpacingFromRef(
-                        temp_path[seg_id],
-                        input_path[seg_id],
-                        # "Linear",
-                        outpath=file_path
-                        )
-                    merge_dic_list[seg_id][model_id] = file_path
+                seg = segmentations.squeeze(0)
+
+
+
+                file_path = os.path.join(outputdir,pred_name.replace('XXXX',model_id))
+                SavePrediction(seg,input_path[0],temp_path[0],output_spacing = spacing)
+                if model_id != "CV":
+                    CleanScan(temp_path[0])
+                SetSpacingFromRef(
+                    temp_path[0],
+                    input_path[0],
+                    # "Linear",
+                    outpath=file_path
+                    )
+                merge_dic_list[model_id] = file_path
 
                 # vtk_path = file_path.split(".")[0] + ".vtp"
                 # SavePredToVTK(file_path,vtk_path)
-            if args.merge:
-                print("Merging")
-                outpath = os.path.join(input_dir,pred_names[seg_id].replace('XXXX','MERGED'))
+            if args.merge and len(merge_dic_list.keys()) > 1:
 
-                MergeSeg(merge_dic_list[seg_id],outpath,args.merging_order)
+
+                print("Merging")
+                outpath = os.path.join(outputdir,pred_name.replace('XXXX','MERGED'))
+
+                MergeSeg(merge_dic_list,outpath,args.merging_order)
+                # merge_dic_list["MERGED"] = outpath
+
+
+            # if args.gen_vtk:
+
 
     try:
         shutil.rmtree(temp_fold)
@@ -176,28 +207,38 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Predict Landmarks', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    #Generate mutually exclusive group
+    # group = parser.add_mutually_exclusive_group(required=True)
+    # group.add_argument('-id','--dir', type=str, help='Path to the scans folder', default='/app/data/scans')
+    # group.add_argument('-if','--file', type=str, help='Path to the scan', default=None)
+    # input_group.add_argument('--dir', type=str, help='Input directory with the scans', default='/app/data/scans')
     
     input_group = parser.add_argument_group('directory')
-    # input_group.add_argument('--dir', type=str, help='Input directory with the scans', default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/data/test')
-    # input_group.add_argument('--dir_models', type=str, help='Folder with the models', default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/temp')
-    input_group.add_argument('--dir', type=str, help='Input directory with the scans', default='/app/data/scans')
-    input_group.add_argument('--dir_models', type=str, help='Folder with the models', default='/app/data/ALL_MODELS')
-    # input_group.add_argument('--load_model', type=str, help='Path of the model', default='/Users/luciacev-admin/Documents/Projects/Benchmarks/CBCT_Seg_benchmark/data/best_model_MAND.pth')
+
+    input_group.add_argument('-id','--dir', type=str, help='Path to the scans folder', default='/app/data/scans')
+    input_group.add_argument('-if','--file', type=str, help='Path to the scan', default=None)
+    # input_group.add_argument('-dm', '--dir_models', type=str, help='Folder with the models', default='/home/luciacev/Desktop/Maxime_Gillot/Data/AMASSS/ALL_MODELS')
+    input_group.add_argument('-dm', '--dir_models', type=str, help='Folder with the models', default='/app/data/ALL_MODELS')
     # input_group.add_argument('--out', type=str, help='Output directory with the landmarks',default=None)
     input_group.add_argument('--temp_fold', type=str, help='temporary folder', default='..')
-    
-    input_group.add_argument('-ss', '--skul_structure', nargs="+", type=str, help='Skul structure to segment', default=["UAW","CV","CB","MAX","MAND"])
+
+    input_group.add_argument('-ss', '--skul_structure', nargs="+", type=str, help='Skul structure to segment', default=["UAW","CB","CV","MAX","MAND"])
     input_group.add_argument('-m', '--merge', type=bool, help='merge the segmentations', default=True)
+    input_group.add_argument('-sf', '--save_in_folder', type=bool, help='Save the output in one folder', default=False)
+
+    # input_group.add_argument('-vtk', '--gen_vtk', type=bool, help='Genrate vtk file', default=False)
+
+
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5,0.5,0.5])
     input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[128,128,128])
     input_group.add_argument('-pr', '--precision', type=float, help='precision of the prediction', default=0.5)
 
-    input_group.add_argument('-mo','--merging_order',nargs="+", type=str, help='order of the merging', default=["SKIN","UAW","CV","CB","MAX","MAND","CAN","RCL","RCU"])
+    input_group.add_argument('-mo','--merging_order',nargs="+", type=str, help='order of the merging', default=["SKIN","CV","UAW","CB","MAX","MAND","CAN","RCL","RCU"])
 
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=2)
     input_group.add_argument('-ncw', '--nbr_CPU_worker', type=int, help='Number of worker', default=5)
     input_group.add_argument('-ngw', '--nbr_GPU_worker', type=int, help='Number of worker', default=5)
-    input_group.add_argument('-bs', '--batch_size', type=int, help='Number of scan to do simultanously', default=1)
 
 
     args = parser.parse_args()

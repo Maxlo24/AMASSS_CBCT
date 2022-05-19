@@ -22,31 +22,34 @@ def main(args):
             elements_ = file_name.split("_")
             elements_dash = file_name.split("-")
             # print(elements_dash)
-            # patient = ""
-            # if len(elements_) != 0:
-            #     if len(elements_) > 2:
-            #         patient = elements_[0] + "_" + elements_[1]
-            #     elif len(elements_) > 1:
-            #         patient = elements_[0]
-            # if len(elements_dash) >1:
-            #     patient = elements_dash[0]
-            patient = "RC-"+elements_[0]
-            for elem in elements_[1:-1]:
-                patient += "_" + elem
+            patient = ""
+            if len(elements_) != 0:
+                if len(elements_) > 2:
+                    patient = elements_[0] + "_" + elements_[1]
+                elif len(elements_) > 1:
+                    patient = elements_[0]
+            if len(elements_dash) >1:
+                patient = elements_dash[0]
 
-            print(patient)
-            # folder_name = os.path.basename(os.path.dirname(img_fn))
-            # if folder_name in patient:
-            #     folder_name = os.path.basename(os.path.dirname(os.path.dirname(img_fn)))
-            # patient = folder_name + "-" + patient
+            # patient = "RC-"+elements_[0]
+            # for elem in elements_[1:-1]:
+            #     patient += "_" + elem
 
             # print(patient)
+
+            folder_name = os.path.basename(os.path.dirname(img_fn))
+            if folder_name in patient:
+                folder_name = os.path.basename(os.path.dirname(os.path.dirname(img_fn)))
+            patient = folder_name + "-" + patient
+
+            print(patient)
 
             if patient not in patients.keys():
                 patients[patient] = {}
 
             if True in [txt in basename for txt in ["scan","Scan"]]:
                 patients[patient]["scan"] = img_fn
+                patients[patient]["dir"] = os.path.dirname(img_fn)
 
             elif True in [txt in basename for txt in ["seg","Seg"]]:
                 patients[patient]["seg"] = img_fn
@@ -73,20 +76,21 @@ def main(args):
     if not os.path.exists(Outpath):
         os.makedirs(Outpath)
 
+
+
     for patient,data in patients.items():
 
         scan = data["scan"]
         seg = data["seg"]
 
-        # patient_dir = patient.split("-")[0]
-        # patient_name = patient.split("-")[1]
+        patient_dir = patient.split("-")[0]
+        patient_name = patient.split("-")[1]
 
-        # patient_dirname =  data["dir"].replace(args.input_dir,'')
-        # ScanOutpath = os.path.normpath("/".join([args.out,patient_dir,"Scans"]))
-        # SegOutpath = os.path.normpath("/".join([args.out,patient_dir,"Segs"]))
+        patient_dirname =  data["dir"].replace(args.input_dir,'')
+        ScanOutpath = os.path.join(Outpath,patient_dir)
 
-        # if not os.path.exists(ScanOutpath):
-        #     os.makedirs(ScanOutpath)
+        if not os.path.exists(ScanOutpath):
+            os.makedirs(ScanOutpath)
             
         # if not os.path.exists(SegOutpath):
         #     os.makedirs(SegOutpath)
@@ -94,13 +98,21 @@ def main(args):
         file_basename = os.path.basename(scan)
         file_name = file_basename.split(".")
 
-        for sp in args.spacing:
-            spacing = str(sp).replace(".","")
-            scan_name = patient + "_scan_Sp"+ spacing + ".nii.gz"
-            seg_name = patient + "_seg_Sp"+ spacing + ".nii.gz"
+        # Outpath_Seg = os.path.join(ScanOutpath, patient + "_Correct_Seg")
+        # if not os.path.exists(Outpath_Seg):
+        #     os.makedirs(Outpath_Seg)
 
-            SetSpacing(scan,[sp,sp,sp],outpath= os.path.join(Outpath,scan_name))
-            SetSpacing(seg,[sp,sp,sp],"NearestNeighbor",os.path.join(Outpath,seg_name))
+        sp = args.spacing
+        spacing = str(sp).replace(".","")
+        # scan_name = patient + "_scan_Sp"+ spacing + ".nii.gz"
+        # seg_name = patient + "_seg_Sp"+ spacing + ".nii.gz"
+        scan_name = patient + "_scan.nii.gz"
+        seg_name = patient + "_MAND-Seg.nii.gz"
+
+        
+
+        SetSpacing(scan,output_spacing=sp,outpath= os.path.join(ScanOutpath,scan_name))
+        SetSpacing(seg,output_spacing=sp,interpolator="NearestNeighbor",outpath= os.path.join(ScanOutpath,seg_name))
 
 
 if __name__ ==  '__main__':
@@ -112,7 +124,7 @@ if __name__ ==  '__main__':
     output_params = parser.add_argument_group('Output parameters')
     output_params.add_argument('-o','--out', type=str, help='Output directory', required=True)
 
-    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5])
+    input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.5,0.5,0.5])
 
     args = parser.parse_args()
     
