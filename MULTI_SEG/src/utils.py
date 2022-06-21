@@ -1,7 +1,7 @@
 import numpy as np  
 import SimpleITK as sitk
 import itk
-
+import vtk
 
 import os
 import matplotlib.pyplot as plt
@@ -16,6 +16,7 @@ import glob
 import sys
 import cc3d
 import shutil
+
 
 
 # ----- MONAI ------
@@ -349,17 +350,28 @@ def GenWorkSpace(dir,test_percentage,out_dir):
 
 def GetTrainValDataset(dir,val_percentage):
     data_dic = {}
+
+    print("Loading data from :",dir)
     normpath = os.path.normpath("/".join([dir, '**', '']))
     for img_fn in sorted(glob.iglob(normpath, recursive=True)):
-        #  print(img_fn)
+        # print(img_fn)
         basename = os.path.basename(img_fn)
+        # print(basename)
 
         if True in [ext in basename for ext in [".nrrd", ".nrrd.gz", ".nii", ".nii.gz", ".gipl", ".gipl.gz"]]:
             file_name = basename.split(".")[0]
-            elements_dash = file_name.split("-")
-            file_folder = elements_dash[0]
-            info = elements_dash[1].split("_scan_Sp")[0].split("_seg_Sp")
-            patient = info[0]
+            # elements_uder = file_name.split("_")
+            patient = basename.split("_MERGED")[0].split("_scan")[0].split("_SKIN")[0]
+            file_folder = os.path.basename(os.path.dirname(img_fn)) 
+
+            # elements_dash = file_name.split("-")
+            # file_folder = elements_dash[0]
+            # info = elements_dash[1].split("_scan_Sp")[0].split("_seg_Sp")
+            # patient = info[0]
+
+
+            # file_folder = "test"
+            # patient = elements_uder[0]
 
             # print(patient)
 
@@ -371,11 +383,29 @@ def GetTrainValDataset(dir,val_percentage):
 
             if "_scan" in basename:
                 data_dic[file_folder][patient]["scan"] = img_fn
+                data_dic[file_folder][patient]["file_name"] = img_fn
 
-            elif "_seg" in basename:
+            elif "MERGED-Seg" in basename:
                 data_dic[file_folder][patient]["seg"] = img_fn
-            else:
-                print("----> Unrecognise CBCT file found at :", img_fn)
+
+                # seg_img = sitk.ReadImage(img_fn)
+                # seg_arr = sitk.GetArrayFromImage(seg_img)
+                # seg_max = np.max(seg_arr)
+                # seg_min = np.min(seg_arr)
+                
+
+                # if seg_max > 6:
+                #     print("----> Segmentation image has more than 6 labels :",img_fn)
+
+                # for label in range(1,6):
+                #     # print(label)
+                #     if label not in seg_arr:
+                #         print(f"----> Segmentation image has missing label {label} :",img_fn)
+                
+                # if seg_max < 0:
+                #     print("----> Segmentation image has neg label :",img_fn)
+            # else:
+            #     print("----> Unrecognise CBCT file found at :", img_fn)
 
 
     # print(data_dic)
@@ -386,10 +416,10 @@ def GetTrainValDataset(dir,val_percentage):
             folder_dic[folder] = []
         for patient,data in patients.items():
             if "scan" not in data.keys():
-                print("Missing scan for patient :",patient,"at",data["dir"])
+                print("Missing scan for patient :",patient)
                 error = True
             if "seg" not in data.keys():
-                print("Missing segmentation patient :",patient,"at",data["dir"])
+                print("Missing segmentation patient :",patient)
                 error = True
             folder_dic[folder].append(data)
 
@@ -785,11 +815,11 @@ def SetSpacingFromRef(filepath,refFile,interpolator = "NearestNeighbor",outpath=
         output = ItkToSitk(resampled_img)
         output = sitk.Cast(output, sitk.sitkInt16)
 
-        if img_sp[0] > ref_sp[0]:
-            closing_radius = 2
-            MedianFilter = sitk.BinaryMedianImageFilter()
-            MedianFilter.SetRadius(closing_radius)
-            output = MedianFilter.Execute(output)
+        # if img_sp[0] > ref_sp[0]:
+        closing_radius = 2
+        MedianFilter = sitk.MedianImageFilter()
+        MedianFilter.SetRadius(closing_radius)
+        output = MedianFilter.Execute(output)
 
 
         if outpath != -1:
@@ -830,6 +860,74 @@ def KeepLabel(filepath,outpath,labelToKeep):
     writer.SetFileName(outpath)
     writer.Execute(output)
     return output
+
+def Write(vtkdata, output_name):
+	outfilename = output_name
+	print("Writting:", outfilename)
+	polydatawriter = vtk.vtkPolyDataWriter()
+	polydatawriter.SetFileName(outfilename)
+	polydatawriter.SetInputData(vtkdata)
+	polydatawriter.Write()
+
+def SavePredToVTK(file_path,temp_folder,smoothing):
+    print("Generating VTK for ", file_path)
+
+    img = sitk.ReadImage(file_path) 
+    img_arr = sitk.GetArrayFromImage(img)
+
+    for i in range(np.max(img_arr)):
+        label = i+1
+        seg = np.where(img_arr == label, 1,0)
+
+        output = sitk.GetImageFromArray(seg)
+
+        output.SetOrigin(img.GetOrigin())
+        output.SetSpacing(img.GetSpacing())
+        output.SetDirection(img.GetDirection())
+        output = sitk.Cast(output, sitk.sitkInt16)
+
+        temp_path = temp_folder +f"/tempVTK_{label}.nrrd"
+        # print(temp_path)
+
+        writer = sitk.ImageFileWriter()
+        writer.SetFileName(temp_path)
+        writer.Execute(output)
+
+        surf = vtk.vtkNrrdReader()
+        surf.SetFileName(temp_path)
+        surf.Update()
+        # print(surf)
+
+        dmc = vtk.vtkDiscreteMarchingCubes()
+        dmc.SetInputConnection(surf.GetOutputPort())
+        dmc.GenerateValues(100, 1, 100)
+
+        # LAPLACIAN smooth
+        SmoothPolyDataFilter = vtk.vtkSmoothPolyDataFilter()
+        SmoothPolyDataFilter.SetInputConnection(dmc.GetOutputPort())
+        SmoothPolyDataFilter.SetNumberOfIterations(smoothing)
+        SmoothPolyDataFilter.SetFeatureAngle(120.0)
+        SmoothPolyDataFilter.SetRelaxationFactor(0.6)
+        SmoothPolyDataFilter.Update()
+
+        # SINC smooth
+        # smoother = vtk.vtkWindowedSincPolyDataFilter()
+        # smoother.SetInputConnection(dmc.GetOutputPort())
+        # smoother.SetNumberOfIterations(30)
+        # smoother.BoundarySmoothingOff()
+        # smoother.FeatureEdgeSmoothingOff()
+        # smoother.SetFeatureAngle(120.0)
+        # smoother.SetPassBand(0.001)
+        # smoother.NonManifoldSmoothingOn()
+        # smoother.NormalizeCoordinatesOn()
+        # smoother.Update()
+
+        # print(SmoothPolyDataFilter.GetOutput())
+
+        # outputFilename = "Test.vtk"
+        outpath = os.path.dirname(file_path) + "/" + os.path.basename(file_path).split('.')[0] + f"_label-{label}.vtk"
+        Write(SmoothPolyDataFilter.GetOutput(), outpath)
+
 
 def ConvertSimpleItkImageToItkImage(_sitk_image: sitk.Image, _pixel_id_value):
     """
