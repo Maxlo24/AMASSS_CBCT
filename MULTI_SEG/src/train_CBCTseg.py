@@ -32,13 +32,19 @@ def main(args):
 
     cropSize = args.crop_size
 
-    train_transforms = CreateTrainTransform(cropSize,1,10)
+    train_transforms = CreateTrainTransform(cropSize,1,4)
     val_transforms = CreateValidationTransform()
 
     trainingSet,validationSet = GetTrainValDataset(args.dir_patients,args.test_percentage/100)
 
     # print(validationSet)
-    model = Create_UNETR(
+    # model = Create_UNETR(
+    #     input_channel=1,
+    #     label_nbr=label_nbr,
+    #     cropSize=cropSize
+    # ).to(DEVICE)
+
+    model = Create_SwinUNETR(
         input_channel=1,
         label_nbr=label_nbr,
         cropSize=cropSize
@@ -140,6 +146,9 @@ class TrainingMaster:
         self.dice_lst = []
 
         self.predictor = 10
+
+
+    
 
     def Process(self,num_epoch):
         for epoch in range(num_epoch):
@@ -302,10 +311,10 @@ if __name__ ==  '__main__':
 
     input_group.add_argument('-mn', '--model_name', type=str, help='Name of the model', default="MandSeg_model")
     input_group.add_argument('-tp', '--test_percentage', type=int, help='Percentage of data to keep for validation', default=13)
-    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[128,128,128])
+    input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[96 ,96, 96])
     input_group.add_argument('-me', '--max_epoch', type=int, help='Number of training epocs', default=250)
     input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=6)
-    input_group.add_argument('-bs', '--batch_size', type=int, help='batch size', default=40)
+    input_group.add_argument('-bs', '--batch_size', type=int, help='batch size', default=1)
     input_group.add_argument('-nw', '--nbr_worker', type=int, help='Number of worker', default=10)
 
 

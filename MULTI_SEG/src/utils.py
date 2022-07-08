@@ -55,8 +55,98 @@ from monai.transforms import (
     NormalizeIntensityd,
 )
 
+#region Global variables
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 DATA_TYPE = torch.float32
+
+
+TRANSLATE ={
+  "Mandible" : "MAND",
+  "Maxilla" : "MAX",
+  "Cranial-base" : "CB",
+  "Cervical-vertebra" : "CV",
+  "Root-canal" : "RC",
+  "Mandibular-canal" : "MCAN",
+  "Upper-airway" : "UAW",
+  "Skin" : "SKIN",
+  "Teeth" : "TEETH"
+}
+
+INV_TRANSLATE = {}
+for k,v in TRANSLATE.items():
+    INV_TRANSLATE[v] = k
+
+LABELS = {
+
+    "LARGE":{
+        "MAND" : 1,
+        "CB" : 2,
+        "UAW" : 3,
+        "MAX" : 4,
+        "CV" : 5,
+        "SKIN" : 6,
+    },
+    "SMALL":{
+        "MAND" : 1,
+        "RC" : 2,
+        "MAX" : 4,
+    }
+}
+
+
+LABEL_COLORS = {
+    1: [216, 101, 79],
+    2: [128, 174, 128],
+    3: [0, 0, 0],
+    4: [230, 220, 70],
+    5: [111, 184, 210],
+    6: [172, 122, 101],
+}
+
+NAMES_FROM_LABELS = {"LARGE":{}, "SMALL":{}}
+for group,data in LABELS.items():
+    for k,v in data.items():
+        NAMES_FROM_LABELS[group][v] = INV_TRANSLATE[k]
+
+
+MODELS_GROUP = {
+    "LARGE": {
+        "FF":
+        {
+            "MAND" : 1,
+            "CB" : 2,
+            "UAW" : 3,
+            "MAX" : 4,
+            "CV" : 5,
+        },
+        "SKIN":
+        {
+            "SKIN" : 1,
+        }
+    },
+
+
+    "SMALL": {
+        "HD-MAND":
+        {
+            "MAND" : 1
+        },
+        "HD-MAX":
+        {
+            "MAX" : 1
+        },
+        "RC":        
+        {
+            "RC" : 1
+        },
+    },
+}
+
+#endregion
+
+
+
 
 
 
@@ -475,6 +565,7 @@ def MergeSeg(seg_path_dic,out_path,seg_order):
     writer.Execute(output)
     return output
 
+
 def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-1500, i_max=4000):
 
     print("Correcting scan contrast :", filepath)
@@ -520,6 +611,7 @@ def CorrectHisto(filepath,outpath,min_porcent=0.01,max_porcent = 0.95,i_min=-150
     writer.SetFileName(outpath)
     writer.Execute(output)
     return output
+
 
 def CloseCBCTSeg(filepath,outpath, closing_radius = 1):
     """
@@ -615,6 +707,7 @@ def ResampleImage(input,size,spacing,origin,direction,interpolator,IVectorImageT
         resampled_img = resampleImageFilter.GetOutput()
         return resampled_img
 
+
 def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],interpolator="Linear",outpath=-1):
     """
     Set the spacing of the image at the wanted scale 
@@ -686,20 +779,22 @@ def SetSpacing(filepath,output_spacing=[0.5, 0.5, 0.5],interpolator="Linear",out
         return img
 
 
-def SavePrediction(data,ref_filepath, outpath, output_spacing):
 
-    # print("Saving prediction to : ", outpath)
+def SavePrediction(img,ref_filepath, outpath, output_spacing):
+
+    # print("Saving prediction for : ", ref_filepath)
 
     # print(data)
 
     ref_img = sitk.ReadImage(ref_filepath) 
 
-    img = data.numpy()[:]
+
 
     output = sitk.GetImageFromArray(img)
     output.SetSpacing(output_spacing)
     output.SetDirection(ref_img.GetDirection())
     output.SetOrigin(ref_img.GetOrigin())
+    output = sitk.Cast(output, sitk.sitkInt16)
 
     writer = sitk.ImageFileWriter()
     writer.SetFileName(outpath)
@@ -747,7 +842,6 @@ def CleanScan(file_path):
     writer = sitk.ImageFileWriter()
     writer.SetFileName(file_path)
     writer.Execute(output)
-
 
 
 def SetSpacingFromRef(filepath,refFile,interpolator = "NearestNeighbor",outpath=-1):
@@ -838,6 +932,8 @@ def SetSpacingFromRef(filepath,refFile,interpolator = "NearestNeighbor",outpath=
             writer.Execute(output)
         return output
 
+
+
 def KeepLabel(filepath,outpath,labelToKeep):
 
     # print("Reading:", filepath)
@@ -869,14 +965,20 @@ def Write(vtkdata, output_name):
 	polydatawriter.SetInputData(vtkdata)
 	polydatawriter.Write()
 
-def SavePredToVTK(file_path,temp_folder,smoothing):
+def SavePredToVTK(file_path,temp_folder,smoothing, out_folder, model_size):
     print("Generating VTK for ", file_path)
 
     img = sitk.ReadImage(file_path) 
     img_arr = sitk.GetArrayFromImage(img)
 
-    for i in range(np.max(img_arr)):
-        label = i+1
+
+    present_labels = []
+    for label in range(np.max(img_arr)):
+        if label+1 in img_arr:
+            present_labels.append(label+1)
+
+    for i in present_labels:
+        label = i
         seg = np.where(img_arr == label, 1,0)
 
         output = sitk.GetImageFromArray(seg)
@@ -910,6 +1012,22 @@ def SavePredToVTK(file_path,temp_folder,smoothing):
         SmoothPolyDataFilter.SetRelaxationFactor(0.6)
         SmoothPolyDataFilter.Update()
 
+        model = SmoothPolyDataFilter.GetOutput()
+
+        color = vtk.vtkUnsignedCharArray() 
+        color.SetName("Colors") 
+        color.SetNumberOfComponents(3) 
+        color.SetNumberOfTuples( model.GetNumberOfCells() )
+            
+        for i in range(model.GetNumberOfCells()):
+            color_tup=LABEL_COLORS[label]
+            color.SetTuple(i, color_tup)
+
+        model.GetCellData().SetScalars(color)
+
+
+        # model.GetPointData().SetS
+
         # SINC smooth
         # smoother = vtk.vtkWindowedSincPolyDataFilter()
         # smoother.SetInputConnection(dmc.GetOutputPort())
@@ -925,8 +1043,12 @@ def SavePredToVTK(file_path,temp_folder,smoothing):
         # print(SmoothPolyDataFilter.GetOutput())
 
         # outputFilename = "Test.vtk"
-        outpath = os.path.dirname(file_path) + "/" + os.path.basename(file_path).split('.')[0] + f"_label-{label}.vtk"
-        Write(SmoothPolyDataFilter.GetOutput(), outpath)
+        outpath = out_folder + "/VTK files/" + os.path.basename(file_path).split('.')[0] + f"_{NAMES_FROM_LABELS[model_size][label]}_model.vtk"
+
+        if not os.path.exists(os.path.dirname(outpath)):
+            os.makedirs(os.path.dirname(outpath))
+        Write(model, outpath)
+
 
 
 def ConvertSimpleItkImageToItkImage(_sitk_image: sitk.Image, _pixel_id_value):

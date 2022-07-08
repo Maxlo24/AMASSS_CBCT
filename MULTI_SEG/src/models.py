@@ -1,4 +1,5 @@
 from monai.networks.nets import UNETR,UNet
+# from monai.networks.nets import SwinUNETR
 
 def Create_UNETR(input_channel, label_nbr,cropSize):
 
@@ -31,3 +32,18 @@ def Create_UNETR(input_channel, label_nbr,cropSize):
     # )
 
     return model
+
+# def Create_SwinUNETR(input_channel, label_nbr,cropSize):
+
+#     model = SwinUNETR(
+#         img_size=cropSize,
+#         in_channels=input_channel,
+#         out_channels=label_nbr,
+#         feature_size=48,
+#         # drop_rate=0.0,
+#         # attn_drop_rate=0.0,
+#         # dropout_path_rate=0.0,
+#         use_checkpoint=True,
+#     )
+
+#     return model
