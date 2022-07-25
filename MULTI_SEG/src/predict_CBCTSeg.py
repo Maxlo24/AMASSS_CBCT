@@ -412,7 +412,7 @@ def main(args):
 
             save_vtk = args.gen_vtk
 
-            if "SEPARATE" in args.merge:
+            if "SEPARATE" in args.merge or len(args.skul_structure) == 1:
                 for struct,segmentation in seg_to_save.items():
                     file_path = os.path.join(outputdir,pred_name.replace('XXXX',struct))
                     SaveSeg(
@@ -476,7 +476,7 @@ if __name__ == "__main__":
     input_group = parser.add_argument_group('directory')
 
     input_group.add_argument('-i','--input', type=str, help='Path to the scans folder', default='/app/data/scans')
-    input_group.add_argument('-dm', '--dir_models', type=str, help='Folder with the models', default='/home/luciacev/Desktop/Maxime_Gillot/Data/AMASSS/FULL_FACE_MODELS')
+    input_group.add_argument('-dm', '--dir_models', type=str, help='Folder with the models', default='/app/data/ALL_MODELS')
     # input_group.add_argument('-dm', '--dir_models', type=str, help='Folder with the models', default='/app/data/ALL_MODELS')
     # input_group.add_argument('--out', type=str, help='Output directory with the landmarks',default=None)
     input_group.add_argument('-temp', '--temp_fold', type=str, help='temporary folder', default='..')
