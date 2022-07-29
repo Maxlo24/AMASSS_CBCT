@@ -465,29 +465,20 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description='Predict Landmarks', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(description='Perform CBCT segmentation', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    #Generate mutually exclusive group
-    # group = parser.add_mutually_exclusive_group(required=True)
-    # group.add_argument('-id','--dir', type=str, help='Path to the scans folder', default='/app/data/scans')
-    # group.add_argument('-if','--file', type=str, help='Path to the scan', default=None)
-    # input_group.add_argument('--dir', type=str, help='Input directory with the scans', default='/app/data/scans')
-    
     input_group = parser.add_argument_group('directory')
 
     input_group.add_argument('-i','--input', type=str, help='Path to the scans folder', default='/app/data/scans')
+    input_group.add_argument('-o', '--output_dir', type=str, help='Folder to save output', default=None)
     input_group.add_argument('-dm', '--dir_models', type=str, help='Folder with the models', default='/app/data/ALL_MODELS')
-    # input_group.add_argument('-dm', '--dir_models', type=str, help='Folder with the models', default='/app/data/ALL_MODELS')
-    # input_group.add_argument('--out', type=str, help='Output directory with the landmarks',default=None)
     input_group.add_argument('-temp', '--temp_fold', type=str, help='temporary folder', default='..')
 
-    input_group.add_argument('-hd','--high_def', type=bool, help='Use high def models',default=False)
     input_group.add_argument('-ss', '--skul_structure', nargs="+", type=str, help='Skul structure to segment', default=["CV","UAW","CB","MAX","MAND"])
+    input_group.add_argument('-hd','--high_def', type=bool, help='Use high def models',default=False)
     input_group.add_argument('-m', '--merge', nargs="+", type=str, help='merge the segmentations', default=["MERGE"])
+
     input_group.add_argument('-sf', '--save_in_folder', type=bool, help='Save the output in one folder', default=True)
-
-
-    input_group.add_argument('-o', '--output_dir', type=str, help='Folder to save output', default=None)
     input_group.add_argument('-id', '--prediction_ID', type=str, help='Generate vtk files', default="Pred")
 
     input_group.add_argument('-vtk', '--gen_vtk', type=bool, help='Genrate vtk file', default=True)
@@ -496,13 +487,9 @@ if __name__ == "__main__":
 
     input_group.add_argument('-sp', '--spacing', nargs="+", type=float, help='Wanted output x spacing', default=[0.4,0.4,0.4])
     input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[128,128,128])
-    # input_group.add_argument('-cs', '--crop_size', nargs="+", type=float, help='Wanted crop size', default=[96,96,96])
-
     input_group.add_argument('-pr', '--precision', type=float, help='precision of the prediction', default=0.5)
-
     input_group.add_argument('-mo','--merging_order',nargs="+", type=str, help='order of the merging', default=["SKIN","CV","UAW","CB","MAX","MAND","CAN","RC"])
 
-    # input_group.add_argument('-nl', '--nbr_label', type=int, help='Number of label', default=6)
     input_group.add_argument('-ncw', '--nbr_CPU_worker', type=int, help='Number of worker', default=5)
     input_group.add_argument('-ngw', '--nbr_GPU_worker', type=int, help='Number of worker', default=1)
 

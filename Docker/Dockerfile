@@ -34,5 +34,7 @@ RUN rm -rf v$RELEASE_VERSION.zip \
 
 RUN pip install -r MULTI_SEG/requirements.txt
 
+RUN apt-get update
+RUN apt-get install ffmpeg libsm6 libxext6  -y
 
 RUN mkdir scans
