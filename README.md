@@ -215,7 +215,7 @@ python3 train_CBCTseg.py --dir_project <Path of the training folder>
 ```
 Aditional options:
 ```
- -mn <Model name>
+-mn <Model name>
 -vp <Porcentage of data for validation> 
 -cs <Input size of the model> 
 -me <number of epoch> 
