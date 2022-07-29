@@ -201,6 +201,7 @@ Expected results of the contrast adjustment :
 
 Organise the training folder as follows:
 
+<img width="278" alt="Screen Shot 2022-02-22 at 12 11 56 PM" src="https://user-images.githubusercontent.com/46842010/181832258-ae140fed-4e8a-4871-a3b9-6e7dd68f628c.png">
 
 
 ### Start the training
@@ -214,7 +215,7 @@ python3 train_CBCTseg.py --dir_project <Path of the training folder>
 ```
 Aditional options:
 ```
- -mn <Model name>
+-mn <Model name>
 -vp <Porcentage of data for validation> 
 -cs <Input size of the model> 
 -me <number of epoch> 
